@@ -1,0 +1,1525 @@
+#!/usr/bin/env node
+
+/**
+ * Antigravity Chinese Localization CLI
+ * Cross-platform patcher and lifecycle manager (Windows / macOS / Linux)
+ */
+
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
+const { execSync } = require('child_process');
+
+const PROJECT_ROOT = __dirname;
+const DICT_PATH = path.join(PROJECT_ROOT, 'dict', 'zh-CN.json');
+const RUNTIME_PATH = path.join(PROJECT_ROOT, 'core', 'i18n-runtime.js');
+const {
+  findVsCodeExtensionDir,
+  isVsCodeExtensionPatched,
+  installVsCodePatch,
+  restoreVsCodePatch
+} = require('./core/vscode-patch');
+
+// Platform paths
+function getCandidateAsarPaths(platform = os.platform(), homedir = os.homedir()) {
+
+  if (platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA || path.join(homedir, 'AppData', 'Local');
+    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+    return [
+      path.join(localAppData, 'Programs', 'antigravity', 'resources', 'app.asar'),
+      path.join(programFiles, 'antigravity', 'resources', 'app.asar'),
+      path.join(programFiles, 'Google Antigravity', 'resources', 'app.asar'),
+      path.join(homedir, 'AppData', 'Roaming', 'antigravity', 'resources', 'app.asar'),
+    ];
+  } else if (platform === 'darwin') {
+    return [
+      '/Applications/Antigravity.app/Contents/Resources/app.asar',
+      path.join(homedir, 'Applications', 'Antigravity.app', 'Contents', 'Resources', 'app.asar'),
+    ];
+  } else {
+    // Linux
+    return [
+      '/opt/antigravity/resources/app.asar',
+      '/usr/lib/antigravity/resources/app.asar',
+      '/usr/share/antigravity/resources/app.asar',
+      path.join(homedir, '.local', 'share', 'antigravity', 'resources', 'app.asar'),
+    ];
+  }
+}
+
+// 冷启动断电与异常中断自愈守卫 (Cold-Boot Crash-Resilient Auto-Healing)
+function tryRecoverSwappedAsar(targetAsarPath) {
+  if (!targetAsarPath) return false;
+  const swapOldPath = path.join(path.dirname(targetAsarPath), 'app.asar.swap-old');
+  if (!fs.existsSync(targetAsarPath) && fs.existsSync(swapOldPath)) {
+    try {
+      fs.renameSync(swapOldPath, targetAsarPath);
+      console.log(`🛡️ [冷启动崩溃自愈] 检测到断电/异常中断遗留的暂存文件 ${swapOldPath}，已自动安全复原为 ${targetAsarPath}！`);
+      return true;
+    } catch (e) {
+      try {
+        fs.copyFileSync(swapOldPath, targetAsarPath);
+        fs.rmSync(swapOldPath, { force: true });
+        console.log(`🛡️ [冷启动崩溃自愈] 通过降级复制成功复原 ${targetAsarPath}！`);
+        return true;
+      } catch (copyErr) {}
+    }
+  }
+  return false;
+}
+
+function findAsarPath(customPath) {
+  if (customPath) {
+    let resolved = path.resolve(customPath);
+    if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+      resolved = path.join(resolved, 'resources', 'app.asar');
+    }
+    tryRecoverSwappedAsar(resolved);
+    if (fs.existsSync(resolved)) return resolved;
+
+    const candidateDirect = path.join(resolved, 'app.asar');
+    tryRecoverSwappedAsar(candidateDirect);
+    if (fs.existsSync(candidateDirect)) return candidateDirect;
+
+    console.error(`❌ 指定路径未找到 app.asar: ${customPath}`);
+    process.exit(1);
+  }
+
+  const candidates = getCandidateAsarPaths();
+  for (const p of candidates) {
+    tryRecoverSwappedAsar(p);
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return null;
+}
+
+function isProcessRunning() {
+  const platform = os.platform();
+  try {
+    if (platform === 'win32') {
+      const stdout = execSync('tasklist /FI "IMAGENAME eq Antigravity.exe" /NH', { encoding: 'utf-8' });
+      return stdout.toLowerCase().includes('antigravity.exe');
+    } else {
+      const stdout = execSync('pgrep -i antigravity || true', { encoding: 'utf-8' });
+      return stdout.trim().length > 0;
+    }
+  } catch (e) {
+    return false;
+  }
+}
+
+function isProtectedEnvironment() {
+  const args = process.argv.slice(2);
+  return Boolean(
+    args.includes('--no-kill') ||
+    process.env.ANTIGRAVITY_AGENT ||
+    process.env.ANTIGRAVITY_CONVERSATION_ID ||
+    process.env.ANTIGRAVITY_AGENTAPI_EXE ||
+    process.env.AGY_NO_KILL === '1' ||
+    process.env.NODE_ENV === 'test'
+  );
+}
+
+function confirmCloseClient(appName = 'Antigravity') {
+  if (isProtectedEnvironment()) {
+    console.warn(`\n🛡️ [安全保护拦截] 当前正运行于 ${appName} 智能体会话/受保护环境中，绝对禁止强杀或关闭宿主客户端！`);
+    return false;
+  }
+
+  const args = process.argv.slice(2);
+  if (args.includes('--force') || args.includes('-f') || args.includes('-y') || args.includes('--yes')) {
+    return true;
+  }
+
+  if (!process.stdin.isTTY) {
+    console.error(`\n⚠️ 检测到 ${appName} 客户端当前正在运行！`);
+    console.error(`为保护未保存的工作，安装器已安全暂停。请先手动退出客户端，或附加 --force 参数执行。`);
+    return false;
+  }
+
+  console.log(`\n⚠️ 检测到 ${appName} 客户端当前正在运行！`);
+  console.log(`为避免文件写入冲突并保护您正在进行的对话与未保存工作，请确认是否允许关闭客户端继续？`);
+  process.stdout.write(`👉 输入 [y/N] 确认关闭并继续 (默认 N 取消): `);
+
+  try {
+    const buffer = Buffer.alloc(1024);
+    const bytesRead = fs.readSync(0, buffer, 0, 1024, null);
+    const answer = buffer.toString('utf8', 0, bytesRead).trim().toLowerCase();
+    if (answer === 'y' || answer === 'yes') {
+      return true;
+    }
+  } catch (e) {}
+
+  return false;
+}
+
+function closeAntigravitySafely() {
+  // 安全铁律：严禁在 Antigravity 智能体会话内部或显式保护模式下强杀自身宿主进程！
+  if (isProtectedEnvironment()) {
+    console.warn('🛡️ [安全保护拦截] 检测到当前运行于 Antigravity 智能体会话或受保护环境中，已严正拦截强杀宿主进程，防止会话与客户端崩溃！');
+    return false;
+  }
+
+  try {
+    if (os.platform() === 'win32') {
+      execSync('taskkill /F /IM Antigravity.exe', { stdio: 'ignore' });
+    } else {
+      execSync('pkill -i antigravity || true', { stdio: 'ignore' });
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// 计算 ASAR 内容指纹，用于版本化纯净备份（官方升级后指纹变化即重建基线）
+function getAsarFingerprint(asarPath) {
+  try {
+    if (!asarPath || !fs.existsSync(asarPath)) return null;
+    const buf = fs.readFileSync(asarPath);
+    return crypto.createHash('sha1').update(buf).digest('hex').slice(0, 16);
+  } catch (e) {
+    return null;
+  }
+}
+
+function ensureAsarTool() {
+  try {
+    execSync('npx --version', { stdio: 'ignore' });
+    return true;
+  } catch (e) {
+    console.error('❌ 需要系统中安装 Node.js 和 npx 工具。');
+    process.exit(1);
+  }
+}
+
+function getPureI18nBundle() {
+  const dictContent = fs.readFileSync(DICT_PATH, 'utf-8');
+  const runtimeContent = fs.readFileSync(RUNTIME_PATH, 'utf-8');
+  return `(function() {
+  try {
+    window.__AGY_I18N_DATA__ = ${dictContent.trim()};
+    ${runtimeContent}
+    if (window.__AGY_RUN_FULL_SCAN__) window.__AGY_RUN_FULL_SCAN__();
+  } catch(e) {
+    console.error('[AGY-i18n] Runtime Injection Error:', e);
+  }
+})();`;
+}
+
+function getBundleScript() {
+  return `
+// --- Antigravity Chinese Localization Injection Start ---
+try {
+  const __agyFs = require('fs');
+  const __agyPath = require('path');
+  const __agyBundleFile = __agyPath.join(__dirname, 'agy-i18n-bundle.js');
+  if (__agyFs.existsSync(__agyBundleFile)) {
+    const __agyCode = __agyFs.readFileSync(__agyBundleFile, 'utf8');
+    const __agyInjectMainWorld = () => {
+      try {
+        if (typeof electron_1 !== 'undefined' && electron_1.webFrame && typeof electron_1.webFrame.executeJavaScript === 'function') {
+          electron_1.webFrame.executeJavaScript(__agyCode).catch(() => {});
+        }
+      } catch (_) {}
+    };
+    if (typeof document !== 'undefined' && document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', __agyInjectMainWorld);
+    } else {
+      __agyInjectMainWorld();
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('load', __agyInjectMainWorld);
+    }
+  }
+} catch (_) {}
+// --- Antigravity Chinese Localization Injection End ---
+`;
+}
+
+function patchUtilsFile(utilsFilePath, bundleFilePath) {
+  if (!fs.existsSync(utilsFilePath)) return;
+  fs.writeFileSync(bundleFilePath, getPureI18nBundle(), 'utf-8');
+  let content = fs.readFileSync(utilsFilePath, 'utf-8');
+  const markerStart = '// --- AGY-I18N-UTILS-START ---';
+  const markerEnd = '// --- AGY-I18N-UTILS-END ---';
+  if (content.includes(markerStart)) {
+    const reg = new RegExp(`${markerStart}[\\s\\S]*?${markerEnd}\\n?`, 'g');
+    content = content.replace(reg, '');
+  }
+  const hookCode = `${markerStart}
+    try {
+        const __agyInject = () => {
+            try {
+                const __fs = require('fs');
+                const __p = path_1.default.join(__dirname, 'agy-i18n-bundle.js');
+                if (__fs.existsSync(__p)) {
+                    win.webContents.executeJavaScript(__fs.readFileSync(__p, 'utf8')).catch(() => {});
+                }
+            } catch (_) {}
+        };
+        win.webContents.on('dom-ready', __agyInject);
+        win.webContents.on('did-finish-load', __agyInject);
+    } catch (_) {}
+    ${markerEnd}
+    void win.loadURL(url);`;
+  if (content.includes('void win.loadURL(url);')) {
+    content = content.replace('void win.loadURL(url);', hookCode);
+    fs.writeFileSync(utilsFilePath, content, 'utf-8');
+  }
+}
+
+async function hotInjectViaCdp(mode = 'install') {
+  try {
+    const homedir = os.homedir();
+    const candidates = [
+      path.join(homedir, 'Library', 'Application Support', 'Antigravity', 'DevToolsActivePort'),
+      path.join(homedir, 'AppData', 'Roaming', 'Antigravity', 'DevToolsActivePort'),
+      path.join(homedir, '.config', 'Antigravity', 'DevToolsActivePort')
+    ];
+    let portFile = null;
+    for (const c of candidates) {
+      if (fs.existsSync(c)) {
+        portFile = c;
+        break;
+      }
+    }
+    if (!portFile) return false;
+    const lines = fs.readFileSync(portFile, 'utf8').trim().split(/\r?\n/);
+    const port = parseInt(lines[0], 10);
+    if (!port || isNaN(port)) return false;
+
+    const http = require('http');
+    const { SimpleWebSocketClient } = require('./core/cdp-client');
+    const targets = await new Promise((resolve) => {
+      const req = http.get(`http://127.0.0.1:${port}/json`, { timeout: 1500 }, (res) => {
+        let raw = '';
+        res.on('data', chunk => raw += chunk);
+        res.on('end', () => {
+          try { resolve(JSON.parse(raw)); } catch (_) { resolve([]); }
+        });
+      });
+      req.on('error', () => resolve([]));
+      req.on('timeout', () => { req.destroy(); resolve([]); });
+    });
+
+    if (!Array.isArray(targets) || targets.length === 0) return false;
+    const pureBundle = getPureI18nBundle();
+    let injectedCount = 0;
+
+    for (const t of targets) {
+      if (t.type === 'page' && t.webSocketDebuggerUrl && !String(t.url || '').startsWith('data:')) {
+        try {
+          const client = new SimpleWebSocketClient(t.webSocketDebuggerUrl);
+          await client.connect();
+          if (mode === 'install') {
+            await client.send('Page.enable').catch(() => {});
+            await client.send('Page.addScriptToEvaluateOnNewDocument', { source: pureBundle }).catch(() => {});
+            await client.send('Runtime.evaluate', {
+              expression: pureBundle,
+              returnByValue: true
+            });
+          } else if (mode === 'restore') {
+            await client.send('Runtime.evaluate', {
+              expression: `(() => {
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                let n;
+                while ((n = walker.nextNode())) {
+                  if (n._agyOriginal !== undefined) {
+                    n.nodeValue = n._agyOriginal;
+                    delete n._agyOriginal;
+                  }
+                }
+                location.reload();
+              })()`,
+              returnByValue: true
+            });
+          }
+          client.close();
+          injectedCount++;
+        } catch (_) {}
+      }
+    }
+    if (injectedCount > 0) {
+      if (mode === 'install') {
+        console.log(`⚡ [CDP 实时热挂载] 已向当前正在运行的 ${injectedCount} 个桌面版窗口实时注入中文界面（免重启立即生效）！`);
+      } else {
+        console.log(`⚡ [CDP 实时热还原] 已将当前正在运行的 ${injectedCount} 个桌面版窗口实时还原为英文界面！`);
+      }
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+function patchMenuFile(menuFilePath) {
+  if (!fs.existsSync(menuFilePath)) return;
+  let content = fs.readFileSync(menuFilePath, 'utf-8');
+  
+  const replacements = [
+    { from: "'New Window'", to: "'新建窗口'" },
+    { from: '"New Window"', to: '"新建窗口"' },
+    { from: "'Docs'", to: "'官方文档'" },
+    { from: '"Docs"', to: '"官方文档"' },
+    { from: "'Command Palette'", to: "'命令面板'" },
+    { from: '"Command Palette"', to: '"命令面板"' },
+    { from: "'Maximize'", to: "'最大化'" },
+    { from: '"Maximize"', to: '"最大化"' },
+    { from: "'Minimize'", to: "'最小化'" },
+    { from: '"Minimize"', to: '"最小化"' },
+    { from: "'Close Window'", to: "'关闭窗口'" },
+    { from: '"Close Window"', to: '"关闭窗口"' },
+    { from: "'Toggle Full Screen'", to: "'切换全屏'" },
+    { from: '"Toggle Full Screen"', to: '"切换全屏"' },
+    { from: "'Zoom In'", to: "'放大'" },
+    { from: '"Zoom In"', to: '"放大"' },
+    { from: "'Zoom Out'", to: "'缩小'" },
+    { from: '"Zoom Out"', to: '"缩小"' },
+    { from: "'Reset Zoom'", to: "'重置缩放'" },
+    { from: '"Reset Zoom"', to: '"重置缩放"' },
+    { from: "'Toggle Developer Tools'", to: "'切换开发者工具'" },
+    { from: '"Toggle Developer Tools"', to: '"切换开发者工具"' },
+    { from: 'updater_1.MenuUpdateStep.CheckForUpdates', to: '"检查更新"' },
+    { from: "'Connect to WSL'", to: "'连接到 WSL'" },
+    { from: '"Connect to WSL"', to: '"连接到 WSL"' },
+    { from: "'Reopen Locally'", to: "'在本地重新打开'" },
+    { from: '"Reopen Locally"', to: '"在本地重新打开"' },
+  ];
+
+  for (const r of replacements) {
+    content = content.split(r.from).join(r.to);
+  }
+
+  fs.writeFileSync(menuFilePath, content, 'utf-8');
+}
+
+function patchIpcHandlersFile(ipcFilePath) {
+  if (!fs.existsSync(ipcFilePath)) return;
+  let content = fs.readFileSync(ipcFilePath, 'utf-8');
+  const replacements = [
+    { from: "'Open workspace'", to: "'打开工作区'" },
+    { from: '"Open workspace"', to: '"打开工作区"' },
+    { from: "'Open workspaces'", to: "'打开多个工作区'" },
+    { from: '"Open workspaces"', to: '"打开多个工作区"' },
+    { from: "'Folder is on the Windows filesystem'", to: "'文件夹位于 Windows 文件系统上'" },
+    { from: '"Folder is on the Windows filesystem"', to: '"文件夹位于 Windows 文件系统上"' }
+  ];
+  for (const r of replacements) {
+    content = content.split(r.from).join(r.to);
+  }
+
+  // 深度注入：原生右键上下文菜单（Native Context Menu）多语言拦截守卫
+  const contextMenuHeader = 'function buildContextMenuTemplate(items, onSelect) {';
+  if (content.includes(contextMenuHeader)) {
+    // 动态聚合词典中所有的短 UI 标签，实现原生右键菜单全量覆盖
+    const baseMenuMap = {
+      // 基础编辑与文本操作
+      'Cut': '剪切',
+      'Copy': '复制',
+      'Paste': '粘贴',
+      'Select All': '全选',
+      'Undo': '撤销',
+      'Redo': '重做',
+
+      // 会话与项目上下文
+      'Rename': '重命名',
+      'Mark Unread': '标记为未读',
+      'Mark Read': '标记为已读',
+      'Split': '拆分',
+      'Fork': '分支',
+      'Archive': '归档',
+      'Delete': '删除',
+      'View Debug': '查看调试信息',
+      'Share': '分享',
+      'Pin': '置顶',
+      'Unpin': '取消置顶',
+      'Duplicate': '创建副本',
+
+      // 复制二级子菜单 (Copy Submenu)
+      'Conversation Name': '会话名称',
+      'Conversation ID': '会话 ID',
+      'Project Name': '项目名称',
+      'Project ID': '项目 ID',
+      'File Path': '文件路径',
+      'Relative Path': '相对路径',
+      'Branch Name': '分支名称',
+      'Commit Hash': '提交哈希',
+      'Copy Path': '复制路径',
+      'Copy Relative Path': '复制相对路径',
+      'Copy Link': '复制链接',
+      'Copy Markdown': '复制 Markdown',
+      'Copy Content': '复制内容',
+
+      // 拆分二级子菜单 (Split Submenu)
+      'Split Right': '向右拆分',
+      'Split Down': '向下拆分',
+      'Split Up': '向上拆分',
+      'Split Left': '向左拆分',
+      'Replace With New': '替换为新会话',
+
+      // 标签页与窗口管理
+      'Close': '关闭',
+      'Close Others': '关闭其他',
+      'Close to the Right': '关闭右侧',
+      'Close Saved': '关闭已保存',
+      'Close All': '全部关闭',
+      'Open in New Window': '在新窗口中打开',
+      'Open in Browser': '在浏览器中打开',
+      'Show in File Explorer': '在文件资源管理器中显示',
+      'Show in Explorer': '在文件资源管理器中显示',
+      'Reveal in File Explorer': '在文件资源管理器中显示',
+      'Open in File Explorer': '在文件资源管理器中打开',
+      'Show in Finder': '在访达中显示',
+      'Reveal in Finder': '在访达中显示',
+      'Show in File Manager': '在文件管理器中显示'
+    };
+
+    // 尝试融合编译好的 zh-CN 字典短词条
+    const mergedMap = {};
+    const bundleJsonPath = path.join(__dirname, 'dict', 'zh-CN.json');
+    if (fs.existsSync(bundleJsonPath)) {
+      try {
+        const d = JSON.parse(fs.readFileSync(bundleJsonPath, 'utf-8'));
+        if (d && d.exact) {
+          for (const [k, v] of Object.entries(d.exact)) {
+            if (k.length > 0 && k.length <= 40 && typeof v === 'string') {
+              mergedMap[k] = v;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    Object.assign(mergedMap, baseMenuMap);
+
+    const injection = `
+const __AGY_CONTEXT_MENU_MAP__ = ${JSON.stringify(mergedMap)};
+function __agyTranslateContextLabel__(lbl) {
+  if (!lbl || typeof lbl !== 'string') return lbl;
+  return __AGY_CONTEXT_MENU_MAP__[lbl] || lbl;
+}
+`;
+    // 若已注入过旧版本，先剥离
+    const existingInjectionRegex = /\n?const __AGY_CONTEXT_MENU_MAP__ = [\s\S]*?function __agyTranslateContextLabel__[\s\S]*?\n}\n/g;
+    if (existingInjectionRegex.test(content)) {
+      content = content.replace(existingInjectionRegex, '');
+    }
+    content = injection + content;
+    content = content.split("label: item.label ?? ''").join("label: __agyTranslateContextLabel__(item.label ?? '')");
+  }
+
+  fs.writeFileSync(ipcFilePath, content, 'utf-8');
+}
+
+function patchIdeWizardFile(wizardFilePath) {
+  if (!fs.existsSync(wizardFilePath)) return;
+  let content = fs.readFileSync(wizardFilePath, 'utf-8');
+  const replacements = [
+    { from: 'Welcome to Antigravity', to: '欢迎使用 Antigravity' },
+    { from: 'Setting up…', to: '正在准备…' },
+    { from: 'Welcome to the new Antigravity!', to: '欢迎体验全新的 Antigravity！' },
+    { from: "Antigravity has been redesigned to put agents first with new capabilities. If you'd still like a code editor, you can download it as a separate app named <b>Antigravity IDE</b>.", to: 'Antigravity 经过全面重构，以强大的智能体为核心。如果您仍需要代码编辑器，可下载独立的 <b>Antigravity IDE</b> 应用。' },
+    { from: 'Download the Antigravity IDE', to: '下载 Antigravity IDE' },
+    { from: 'Explore the new Antigravity', to: '开始探索全新 Antigravity' }
+  ];
+  for (const r of replacements) {
+    content = content.split(r.from).join(r.to);
+  }
+  fs.writeFileSync(wizardFilePath, content, 'utf-8');
+}
+
+function patchUpdaterFile(updaterFilePath) {
+  if (!fs.existsSync(updaterFilePath)) return;
+  let content = fs.readFileSync(updaterFilePath, 'utf-8');
+  const replacements = [
+    { from: "title: 'Check for Updates'", to: "title: '检查更新'" },
+    { from: 'title: "Check for Updates"', to: 'title: "检查更新"' },
+    { from: "message: 'No updates available'", to: "message: '暂无可用更新'" },
+    { from: 'message: "No updates available"', to: 'message: "暂无可用更新"' },
+    { from: "buttons: ['OK']", to: "buttons: ['确定']" },
+    { from: 'buttons: ["OK"]', to: 'buttons: ["确定"]' },
+    { from: 'MenuUpdateStep["CheckForUpdates"] = "Check for Updates"', to: 'MenuUpdateStep["CheckForUpdates"] = "检查更新"' },
+    { from: 'MenuUpdateStep["CheckingForUpdates"] = "Checking for Updates..."', to: 'MenuUpdateStep["CheckingForUpdates"] = "正在检查更新..."' },
+    { from: 'MenuUpdateStep["DownloadingUpdate"] = "Downloading Update..."', to: 'MenuUpdateStep["DownloadingUpdate"] = "正在下载更新..."' },
+    { from: 'MenuUpdateStep["RestartToUpdate"] = "Restart to Update"', to: 'MenuUpdateStep["RestartToUpdate"] = "重启以应用更新"' }
+  ];
+  for (const r of replacements) {
+    content = content.split(r.from).join(r.to);
+  }
+  fs.writeFileSync(updaterFilePath, content, 'utf-8');
+}
+
+function patchMainFile(mainFilePath) {
+  if (!fs.existsSync(mainFilePath)) return;
+  let content = fs.readFileSync(mainFilePath, 'utf-8');
+
+  // 1. 系统托盘静态初始文本与右键菜单项
+  content = content.replace(/label:\s*['"]No agents running['"]/g, "label: '无正在运行的智能体'");
+  content = content.replace(/label:\s*`Open \$\{([^\}]+)\}`/g, "label: `打开 ${$1}`");
+  content = content.replace(/label:\s*['"]Open ['"]\s*\+\s*([a-zA-Z0-9_\.]+\.getName\(\))/g, "label: '打开 ' + $1");
+  content = content.replace(/label:\s*['"]Quit['"]/g, "label: '退出'");
+
+  // 2. 原生退出二次确认对话框、错误与启动弹窗
+  content = content.replace(/title:\s*['"]Confirm Quit['"]/g, "title: '确认退出'");
+  content = content.replace(/message:\s*['"]Are you sure you want to quit\?['"]/g, "message: '您确定要退出吗？'");
+  content = content.replace(/detail:\s*['"]There may be agents or background tasks running\.['"]/g, "detail: '可能仍有正在运行的智能体或后台任务。'");
+  content = content.replace(/buttons:\s*\[\s*['"]Cancel['"]\s*,\s*['"]Quit['"]\s*\]/g, "buttons: ['取消', '退出']");
+  content = content.replace(/['"]Binary not found['"]/g, "'未找到二进制文件'");
+  content = content.replace(/['"]Startup failed['"]/g, "'启动失败'");
+
+  // 3. macOS dock 菜单支持
+  content = content.replace(/label:\s*['"]New Window['"]/g, "label: '新建窗口'");
+
+  // 4. WSL 弹窗与系统提示
+  content = content.replace(/title:\s*['"]WSL distro not found['"]/g, "title: '未找到 WSL 发行版'");
+  content = content.replace(/['"]WSL distro not found['"]/g, "'未找到 WSL 发行版'");
+  content = content.replace(/['"]Antigravity opened on Windows instead\.['"]/g, "'Antigravity 已改为在 Windows 本地打开。'");
+
+  fs.writeFileSync(mainFilePath, content, 'utf-8');
+}
+
+function patchWslFile(wslFilePath) {
+  if (!fs.existsSync(wslFilePath)) return;
+  let content = fs.readFileSync(wslFilePath, 'utf-8');
+  content = content.replace(/This folder is on the Windows filesystem\. Accessing it from WSL \(via \/mnt\) can be slow — for best performance keep projects inside the WSL filesystem\./g, '此文件夹位于 Windows 文件系统上。从 WSL 访问该目录（通过 /mnt）可能会较慢 —— 为获得最佳性能，建议将项目保留在 WSL 文件系统内。');
+  content = content.replace(/This location cannot be opened in WSL:/g, '此位置无法在 WSL 中打开：');
+  fs.writeFileSync(wslFilePath, content, 'utf-8');
+}
+
+function patchTrayFile(trayFilePath) {
+  if (!fs.existsSync(trayFilePath)) return;
+  let content = fs.readFileSync(trayFilePath, 'utf-8');
+
+  // 动态更新运行中智能体计数文本 (例如 "No agents running", "1 agent running", "2 agents running")
+  const dynamicRegex = /\(count\s*>\s*0\s*\?\s*`\$\{count\}`\s*:\s*['"]No['"]\)\s*\+\s*['"] agent['"]\s*\+\s*\(count\s*===\s*1\s*\?\s*['"]['"]\s*:\s*['"]s['"]\)\s*\+\s*['"] running['"]/g;
+  if (dynamicRegex.test(content)) {
+    content = content.replace(dynamicRegex, "(count > 0 ? `${count} 个正在运行的智能体` : '无正在运行的智能体')");
+  } else {
+    // 兼容其他格式变体
+    content = content.split("' agent' + (count === 1 ? '' : 's') + ' running'").join("' 个正在运行的智能体'");
+    content = content.split('" agent" + (count === 1 ? "" : "s") + " running"').join('" 个正在运行的智能体"');
+    content = content.split("'No agents running'").join("'无正在运行的智能体'");
+    content = content.split('"No agents running"').join('"无正在运行的智能体"');
+  }
+
+  fs.writeFileSync(trayFilePath, content, 'utf-8');
+}
+
+const MIN_NODE_VERSION = 16;
+
+function runPreflightCheck(customPath) {
+  const checks = [];
+  let allPassed = true;
+
+  // 1. Node.js 运行时最低版本检测 (支持所有更高版本，绝不限制上限)
+  const nodeVerStr = process.version.replace(/^v/, '');
+  const majorVer = parseInt(nodeVerStr.split('.')[0], 10);
+  const nodePassed = !isNaN(majorVer) && majorVer >= MIN_NODE_VERSION;
+  checks.push({
+    name: 'Node.js 运行时版本',
+    detail: `当前: v${nodeVerStr} (要求: >= v${MIN_NODE_VERSION}.0.0)`,
+    passed: nodePassed,
+    critical: true
+  });
+  if (!nodePassed) allPassed = false;
+
+  // 2. npx / npm 打包工具可用性检查
+  let npxPassed = false;
+  try {
+    execSync('npx --version', { stdio: 'ignore' });
+    npxPassed = true;
+  } catch (e) {}
+  checks.push({
+    name: 'NPX 资源解构工具',
+    detail: npxPassed ? '已就绪' : '未检测到 npx 工具 (请安装 Node.js 环境)',
+    passed: npxPassed,
+    critical: true
+  });
+  if (!npxPassed) allPassed = false;
+
+  // 3. 客户端安装与 asar 路径探测
+  const asarPath = findAsarPath(customPath);
+  const installPassed = !!asarPath;
+  checks.push({
+    name: 'Antigravity 客户端安装状态',
+    detail: installPassed ? `已找到 (${asarPath})` : '未自动探测到客户端安装路径',
+    passed: installPassed,
+    critical: true
+  });
+  if (!installPassed) allPassed = false;
+
+  // 4. 进程占用与文件锁状态
+  const running = isProcessRunning();
+  checks.push({
+    name: '进程占用与文件锁状态',
+    detail: running ? '运行中 (安装器将自动安全释放文件锁)' : '已就绪 (未运行，无文件锁占用)',
+    passed: true,
+    critical: false
+  });
+
+  return {
+    allPassed,
+    asarPath,
+    checks
+  };
+}
+
+function install(customPath) {
+  console.log('🔍 [1/5] 正在执行前置环境全维健康预检 (Pre-flight Checks)...');
+  const preflight = runPreflightCheck(customPath);
+  for (const c of preflight.checks) {
+    const icon = c.passed ? '✅' : (c.critical ? '❌' : '⚠️');
+    console.log(`   ${icon} ${c.name}: ${c.detail}`);
+  }
+
+  if (!preflight.allPassed) {
+    console.error('\n❌ 前置条件检查未通过，安装中止。请根据上方提示排查环境。');
+    process.exit(1);
+  }
+
+  const asarPath = preflight.asarPath;
+
+  // 只有在未指定 customPath（即针对当前本机默认宿主安装）时，才检测并征求用户同意后安全退出客户端
+  if (!customPath && isProcessRunning()) {
+    if (isProtectedEnvironment()) {
+      console.log('\n🛡️ [智能体会话无损预注入模式] 检测到当前运行于 Antigravity 会话内部，绝不强关宿主，将预构建汉化包并挂载退出自动生效守护...');
+    } else {
+      const shouldClose = confirmCloseClient('Antigravity');
+      if (!shouldClose) {
+        console.log('\nℹ️ 已安全取消安装。请在保存工作并退出 Antigravity 客户端后重新执行。');
+        process.exit(0);
+      }
+      console.log('\n🔄 正在安全退出客户端以释放资源写入锁...');
+      closeAntigravitySafely();
+    }
+  }
+
+  const resourcesDir = path.dirname(asarPath);
+  const backupPath = path.join(resourcesDir, 'app.asar.bak');
+  const backupFpPath = path.join(resourcesDir, 'app.asar.bak.fingerprint');
+  const tempExtractDir = path.join(resourcesDir, '__asar_temp_unpack__');
+
+  // 1. Backup (严格判据：只有当当前 ASAR 确认为官方原生未打补丁时，才允许建立或更新 upstream pristine 备份)
+  console.log('📦 [2/5] 检查安全备份...');
+  const isPatched = isAsarPatched(asarPath);
+  const currentFp = getAsarFingerprint(asarPath);
+  let prevFp = null;
+  if (fs.existsSync(backupFpPath)) {
+    try { prevFp = fs.readFileSync(backupFpPath, 'utf8').trim(); } catch (e) {}
+  }
+
+  if (!isPatched) {
+    // 当前确认为官方原生未打补丁版本：指纹变动即代表官方发版更新，立即刷新纯净基准备份
+    if (!fs.existsSync(backupPath) || currentFp !== prevFp) {
+      if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { force: true });
+      fs.copyFileSync(asarPath, backupPath);
+      fs.writeFileSync(backupFpPath, String(currentFp), 'utf8');
+      console.log(`✅ 已创建当前官方纯净版本基准备份: ${backupPath} (fingerprint ${currentFp})`);
+    } else {
+      console.log(`ℹ️ 官方基准备份已是最新 (fingerprint ${currentFp})，跳过重复备份`);
+    }
+  } else {
+    // 当前已打补丁：绝对禁止用已打补丁的文件覆盖/破坏纯净基准备份
+    if (fs.existsSync(backupPath)) {
+      console.log(`ℹ️ 检测到当前已处于汉化状态，安全保留既有官方纯净基准备份 (${backupPath})`);
+    } else {
+      console.log(`⚠️ 警告: 当前 ASAR 已包含补丁且无历史纯净备份，跳过基线覆盖以防二次污染`);
+    }
+  }
+
+  // 2. Extract (始终优先从纯净基准备份解包，杜绝多次安装导致的补丁累加膨胀)
+  console.log('⚙️ [3/5] 正在解构资源包 (ASAR)...');
+  if (fs.existsSync(tempExtractDir)) {
+    fs.rmSync(tempExtractDir, { recursive: true, force: true });
+  }
+
+  const extractSource = fs.existsSync(backupPath) ? backupPath : asarPath;
+  const bakUnpackedLink = backupPath + '.unpacked';
+  const origUnpackedDir = asarPath + '.unpacked';
+  try {
+    if (extractSource === backupPath && fs.existsSync(origUnpackedDir) && !fs.existsSync(bakUnpackedLink)) {
+      try { fs.symlinkSync(origUnpackedDir, bakUnpackedLink, 'dir'); } catch (_) {}
+    }
+    const asarBin = path.join(__dirname, 'node_modules', '.bin', os.platform() === 'win32' ? 'asar.cmd' : 'asar');
+    const extractCmd = fs.existsSync(asarBin)
+      ? `"${asarBin}" extract "${extractSource}" "${tempExtractDir}"`
+      : `npx -y @electron/asar@3.2.14 extract "${extractSource}" "${tempExtractDir}"`;
+    execSync(extractCmd, { stdio: 'inherit' });
+    if (fs.existsSync(bakUnpackedLink)) {
+      try { fs.unlinkSync(bakUnpackedLink); } catch (_) {}
+    }
+  } catch (err) {
+    if (fs.existsSync(bakUnpackedLink)) {
+      try { fs.unlinkSync(bakUnpackedLink); } catch (_) {}
+    }
+    console.error('❌ 解包 app.asar 失败:', err.message);
+    process.exit(1);
+  }
+
+  // 3. Patch Preload & Menu
+  console.log('💉 [4/5] 正在注入汉化引擎与词库...');
+  const preloadPath = path.join(tempExtractDir, 'dist', 'preload.js');
+  const menuPath = path.join(tempExtractDir, 'dist', 'menu.js');
+
+  if (!fs.existsSync(preloadPath)) {
+    console.error(`❌ 未找到 preload 脚本: ${preloadPath}`);
+    process.exit(1);
+  }
+
+  const bundleScript = getBundleScript();
+  let preloadContent = fs.readFileSync(preloadPath, 'utf-8');
+
+  // Check if already patched
+  if (preloadContent.includes('Antigravity Chinese Localization Injection')) {
+    const regex = /\/\/ --- Antigravity Chinese Localization Injection Start ---[\s\S]*?\/\/ --- Antigravity Chinese Localization Injection End ---/g;
+    preloadContent = preloadContent.replace(regex, '');
+  }
+
+  preloadContent += '\n' + bundleScript;
+  fs.writeFileSync(preloadPath, preloadContent, 'utf-8');
+
+  if (fs.existsSync(menuPath)) {
+    patchMenuFile(menuPath);
+  }
+
+  const ipcPath = path.join(tempExtractDir, 'dist', 'ipcHandlers.js');
+  if (fs.existsSync(ipcPath)) {
+    patchIpcHandlersFile(ipcPath);
+  }
+
+  const wizardHtmlPath = path.join(tempExtractDir, 'dist', 'ideInstall', 'wizardHtml.js');
+  if (fs.existsSync(wizardHtmlPath)) {
+    patchIdeWizardFile(wizardHtmlPath);
+  }
+
+  const updaterPath = path.join(tempExtractDir, 'dist', 'updater.js');
+  if (fs.existsSync(updaterPath)) {
+    patchUpdaterFile(updaterPath);
+  }
+
+  const mainPath = path.join(tempExtractDir, 'dist', 'main.js');
+  if (fs.existsSync(mainPath)) {
+    patchMainFile(mainPath);
+  }
+
+  const trayPath = path.join(tempExtractDir, 'dist', 'tray.js');
+  if (fs.existsSync(trayPath)) {
+    patchTrayFile(trayPath);
+  }
+
+  const wslPath = path.join(tempExtractDir, 'dist', 'wsl.js');
+  if (fs.existsSync(wslPath)) {
+    patchWslFile(wslPath);
+  }
+
+  const utilsPath = path.join(tempExtractDir, 'dist', 'utils.js');
+  const bundleOutPath = path.join(tempExtractDir, 'dist', 'agy-i18n-bundle.js');
+  if (fs.existsSync(utilsPath)) {
+    patchUtilsFile(utilsPath, bundleOutPath);
+  }
+
+  // 4. Pack back
+  console.log('🔄 [5/5] 正在重构并应用补丁...');
+  const tempNewAsar = path.join(resourcesDir, 'app.asar.new');
+  if (fs.existsSync(tempNewAsar)) fs.rmSync(tempNewAsar, { force: true });
+
+  try {
+    const asarBin = path.join(__dirname, 'node_modules', '.bin', os.platform() === 'win32' ? 'asar.cmd' : 'asar');
+    const unpackedMcp = path.join(resourcesDir, 'app.asar.unpacked', 'node_modules', 'chrome-devtools-mcp');
+    const unpackFlag = fs.existsSync(unpackedMcp) ? ' --unpack-dir "node_modules/chrome-devtools-mcp"' : '';
+    const packCmd = fs.existsSync(asarBin)
+      ? `"${asarBin}" pack "${tempExtractDir}" "${tempNewAsar}"${unpackFlag}`
+      : `npx -y @electron/asar@3.2.14 pack "${tempExtractDir}" "${tempNewAsar}"${unpackFlag}`;
+    execSync(packCmd, { stdio: 'inherit' });
+    if (fs.existsSync(tempNewAsar + '.unpacked')) {
+      fs.rmSync(tempNewAsar + '.unpacked', { recursive: true, force: true });
+    }
+    
+    // 带自动回滚的双阶段安全替换架构 (Two-Phase Staged Swap with Automatic Rollback)
+    const swapOldAsar = path.join(resourcesDir, 'app.asar.swap-old');
+    if (fs.existsSync(swapOldAsar)) fs.rmSync(swapOldAsar, { force: true });
+
+    let replaceSuccess = false;
+    let isSwapped = false;
+    let lastError = null;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        // 阶段 1: 将原 app.asar rename 为 app.asar.swap-old（安全暂存原版，绝不直接物理删除！）
+        if (!isSwapped && fs.existsSync(asarPath)) {
+          fs.renameSync(asarPath, swapOldAsar);
+          isSwapped = true;
+        }
+        // 阶段 2: 将生成好的 app.asar.new rename 为 app.asar
+        fs.renameSync(tempNewAsar, asarPath);
+        replaceSuccess = true;
+        break;
+      } catch (permErr) {
+        lastError = permErr;
+        if (permErr.code === 'EPERM' || permErr.code === 'EBUSY') {
+          if (attempt < 4) {
+            try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400); } catch (_) {}
+          }
+        } else {
+          break;
+        }
+      }
+    }
+
+    if (!replaceSuccess) {
+      // 核心安全防御：两阶段替换失败，触发自动 Rollback！
+      if (isSwapped && fs.existsSync(swapOldAsar)) {
+        try {
+          if (fs.existsSync(asarPath)) fs.rmSync(asarPath, { force: true });
+          fs.renameSync(swapOldAsar, asarPath);
+          console.log('✅ 已成功将宿主客户端恢复至安装前完整状态，未发生文件丢失。');
+        } catch (rollbackErr) {
+          console.error('❌ 回滚遇到错误:', rollbackErr.message);
+        }
+      }
+
+      const isLockedErr = lastError && (lastError.code === 'EBUSY' || lastError.code === 'EPERM');
+      if (!customPath && isProtectedEnvironment() && isLockedErr && fs.existsSync(tempNewAsar)) {
+        const stagedAsar = path.join(resourcesDir, 'app.asar.staged');
+        if (fs.existsSync(stagedAsar)) fs.rmSync(stagedAsar, { force: true });
+        fs.renameSync(tempNewAsar, stagedAsar);
+        if (fs.existsSync(tempExtractDir)) fs.rmSync(tempExtractDir, { recursive: true, force: true });
+
+        try {
+          const { spawn } = require('child_process');
+          const child = spawn(process.execPath, [__filename, 'apply-staged', '--path', asarPath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true
+          });
+          child.unref();
+        } catch (_) {}
+
+        void hotInjectViaCdp('install');
+        console.log('\n✨ ==============================================');
+        console.log('✨ [无损预注入就绪] 最新汉化包已预构建为: app.asar.staged');
+        console.log('✨ 已挂载后台静默守候进程：当您稍后正常关闭 Antigravity 客户端时，');
+        console.log('✨ 将在 0.5 秒内自动完成原子替换，下次打开即刻呈现中文界面！');
+        console.log('✨ ==============================================\n');
+        return;
+      }
+
+      console.error('\n⚠️ [安全回滚触发] ASAR 替换失败，正在执行出厂原件自动回滚...');
+      if (fs.existsSync(tempNewAsar)) fs.rmSync(tempNewAsar, { force: true });
+      if (fs.existsSync(tempExtractDir)) fs.rmSync(tempExtractDir, { recursive: true, force: true });
+      console.error('\n❌ 文件被占用或替换失败:', lastError ? lastError.message : '未知错误');
+      console.error('   Antigravity 客户端可能正在运行并锁定了文件。已保持原版完整，安装中止。');
+      process.exit(1);
+    }
+
+    // 成功替换后，安全清理暂存原版与可能残留的预注入包
+    if (fs.existsSync(swapOldAsar)) {
+      try { fs.rmSync(swapOldAsar, { force: true }); } catch (_) {}
+    }
+    const residualStagedAsar = path.join(resourcesDir, 'app.asar.staged');
+    if (fs.existsSync(residualStagedAsar)) {
+      try { fs.rmSync(residualStagedAsar, { force: true }); } catch (_) {}
+    }
+
+    // 写入汉化元数据指纹 (Hash/Manifest 根治架构)
+    const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
+    const newAsarFp = getAsarFingerprint(asarPath);
+    fs.writeFileSync(metaPath, JSON.stringify({ patched: true, patchedFingerprint: newAsarFp, timestamp: Date.now() }, null, 2), 'utf8');
+
+    // Clean temp
+    if (fs.existsSync(tempExtractDir)) {
+      fs.rmSync(tempExtractDir, { recursive: true, force: true });
+    }
+
+    // macOS codesign & ElectronAsarIntegrity sync
+    if (os.platform() === 'darwin') {
+      syncMacAsarIntegrityAndSign(asarPath);
+    }
+
+    // 如果客户端当前正在运行，自动通过 CDP 实时热注入所有已打开窗口
+    void hotInjectViaCdp('install');
+
+    console.log('\n🎉 ==============================================');
+    console.log('🎉 汉化补丁安装成功！（已同时激活实时热挂载与持久化补丁）');
+    console.log('🎉 如需恢复官方英文状态，随时运行: node cli.js restore');
+    console.log('🎉 ==============================================\n');
+  } catch (err) {
+    console.error('❌ 重构 app.asar 失败:', err.message);
+    if (fs.existsSync(tempExtractDir)) {
+      fs.rmSync(tempExtractDir, { recursive: true, force: true });
+    }
+    if (fs.existsSync(tempNewAsar)) {
+      fs.rmSync(tempNewAsar, { force: true });
+    }
+    process.exit(1);
+  }
+}
+
+function syncMacAsarIntegrityAndSign(asarPath) {
+  if (os.platform() !== 'darwin') return;
+  try {
+    const appIndex = asarPath.indexOf('.app');
+    if (appIndex === -1) return;
+    const appPath = asarPath.substring(0, appIndex + 4);
+    const plistPath = path.join(appPath, 'Contents', 'Info.plist');
+    if (fs.existsSync(plistPath) && fs.existsSync(asarPath)) {
+      const buf = fs.readFileSync(asarPath);
+      const strSize = buf.readUInt32LE(12);
+      const headerBuf = buf.subarray(16, 16 + strSize);
+      const headerHash = crypto.createHash('sha256').update(headerBuf).digest('hex');
+      try {
+        execSync(`/usr/libexec/PlistBuddy -c "Set :ElectronAsarIntegrity:Resources/app.asar:hash ${headerHash}" "${plistPath}"`, { stdio: 'ignore' });
+      } catch (_) {}
+    }
+    console.log('🔏 [macOS] 正在同步 ASAR 完整性校验哈希并重签应用签名 (Ad-hoc codesign)...');
+    execSync(`codesign --force --deep --preserve-metadata=entitlements --sign - "${appPath}"`, { stdio: 'ignore' });
+    console.log('✅ macOS 完整性哈希同步与签名完成');
+  } catch (e) {
+    const appPath = asarPath.substring(0, asarPath.indexOf('.app') + 4);
+    console.warn('⚠️ codesign 自动重签遇到警告，若打开报错可在终端执行: codesign --force --deep --sign - ' + appPath);
+  }
+}
+
+function restore(customPath) {
+  console.log('🔍 正在定位 Antigravity 客户端路径...');
+  const asarPath = findAsarPath(customPath);
+  if (!asarPath) {
+    console.error('❌ 未能找到 Antigravity 安装路径。');
+    process.exit(1);
+  }
+
+  const resourcesDir = path.dirname(asarPath);
+  const backupPath = path.join(resourcesDir, 'app.asar.bak');
+  const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
+  const stagedPath = path.join(resourcesDir, 'app.asar.staged');
+
+  if (!fs.existsSync(backupPath)) {
+    console.error(`❌ 未找到安全备份文件: ${backupPath}，无法自动还原。`);
+    process.exit(1);
+  }
+
+  const backupFpPath = path.join(resourcesDir, 'app.asar.bak.fingerprint');
+  const isPatched = isAsarPatched(asarPath);
+  const currentFp = getAsarFingerprint(asarPath);
+  let prevFp = null;
+
+  // 1. 优先从 fingerprint 文件读取
+  if (fs.existsSync(backupFpPath)) {
+    try { prevFp = fs.readFileSync(backupFpPath, 'utf8').trim(); } catch (e) {}
+  }
+
+  // 2. 历史无 fingerprint 文件自适应迁移策略 (Provenance & Migration Guard)
+  if (!prevFp && fs.existsSync(backupPath)) {
+    prevFp = getAsarFingerprint(backupPath);
+    // 若备份经检验为官方未修改版本，安全补齐指纹凭据
+    if (!isAsarPatched(backupPath) && prevFp) {
+      try { fs.writeFileSync(backupFpPath, String(prevFp), 'utf8'); } catch (e) {}
+    }
+  }
+
+  const isBakPatched = isAsarPatched(backupPath);
+
+  // 核心安全原则 1：如果当前宿主已经是官方原生未打补丁版本，且与备份指纹不一致，严禁跨版本覆盖，自动保护新版！
+  if (!isPatched && prevFp && currentFp !== prevFp) {
+    console.log('ℹ️ 检测到当前客户端已由官方升级至全新纯净原生版本，无需还原。');
+    console.log('🧹 正在安全清理陈旧出厂基准备份与元数据...');
+    if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { force: true });
+    if (fs.existsSync(backupFpPath)) fs.rmSync(backupFpPath, { force: true });
+    if (fs.existsSync(metaPath)) fs.rmSync(metaPath, { force: true });
+    if (fs.existsSync(stagedPath)) fs.rmSync(stagedPath, { force: true });
+    uninstallPlugin();
+    console.log('\n✅ 客户端版本安全保护完成，当前官方全新原生版本已完整保留！\n');
+    return;
+  }
+
+  // 核心安全原则 2：若旧备份本身存在汉化污染标记（历史遗留损坏备份）且当前是原生版，禁止还原以防二次污染！
+  if (!isPatched && isBakPatched) {
+    console.warn('⚠️ [安全熔断] 检测到历史备份文件已包含汉化标记且当前客户端为官方原生版，禁止回退覆盖！');
+    if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { force: true });
+    if (fs.existsSync(backupFpPath)) fs.rmSync(backupFpPath, { force: true });
+    if (fs.existsSync(metaPath)) fs.rmSync(metaPath, { force: true });
+    if (fs.existsSync(stagedPath)) fs.rmSync(stagedPath, { force: true });
+    uninstallPlugin();
+    console.log('✅ 已清理污染的历史备份，完整保留当前官方原生客户端。\n');
+    return;
+  }
+
+  // 1. 进程占用检测与文件锁释放 (仅在针对原生默认宿主路径时生效)
+  if (!customPath && isProcessRunning()) {
+    const shouldClose = confirmCloseClient('Antigravity');
+    if (!shouldClose && !isProtectedEnvironment()) {
+      console.log('\nℹ️ 已安全取消还原。请在保存工作并退出 Antigravity 客户端后重新执行。');
+      process.exit(0);
+    } else if (shouldClose) {
+      console.log('\n🔄 正在安全退出客户端以释放资源写入锁...');
+      closeAntigravitySafely();
+    }
+  }
+
+  console.log(`📦 正在从备份还原原始文件: ${backupPath}`);
+  // taskkill 后 Windows 文件锁可能延迟释放，对 EPERM/EBUSY 做跨平台重试
+  try {
+    let copyErr = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        fs.copyFileSync(backupPath, asarPath);
+        copyErr = null;
+        break;
+      } catch (e) {
+        copyErr = e;
+        if (e.code !== 'EPERM' && e.code !== 'EBUSY') throw e;
+        if (attempt < 4) {
+          try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400); } catch (_) {}
+        }
+      }
+    }
+    if (copyErr) throw copyErr;
+
+    // 清除元数据与可能残留的预注入包
+    if (fs.existsSync(metaPath)) fs.rmSync(metaPath, { force: true });
+    if (fs.existsSync(stagedPath)) fs.rmSync(stagedPath, { force: true });
+
+    if (os.platform() === 'darwin') {
+      syncMacAsarIntegrityAndSign(asarPath);
+    }
+
+    // 2. ASAR 成功还原后，安全同步卸载社区插件
+    uninstallPlugin();
+    void hotInjectViaCdp('restore');
+
+    console.log('\n✅ ==============================================');
+    console.log('✅ 已成功还原为官方原生英文版本！');
+    console.log('✅ 插件与宿主 UI 汉化已全部干净清除。');
+    console.log('✅ ==============================================\n');
+  } catch (err) {
+    if (err.code === 'EPERM' || err.code === 'EBUSY') {
+      console.error('\n❌ 文件被占用 (EPERM): 请确保 Antigravity 客户端已完全退出后再执行还原。\n');
+    } else {
+      console.error('❌ 还原失败:', err.message);
+    }
+    process.exit(1);
+  }
+}
+
+function status(customPath) {
+  console.log('📊 正在检查 Antigravity 客户端及汉化状态...\n');
+  const asarPath = findAsarPath(customPath);
+  if (!asarPath) {
+    console.log('❌ 状态: 未找到本地 Antigravity 客户端安装。');
+    return;
+  }
+
+  const resourcesDir = path.dirname(asarPath);
+  const backupPath = path.join(resourcesDir, 'app.asar.bak');
+  const hasBackup = fs.existsSync(backupPath);
+  const running = isProcessRunning();
+
+  console.log(`• 平台系统:     ${os.platform()} (${os.arch()})`);
+  console.log(`• 客户端运行:   ${running ? '🟢 正在运行中' : '⚪ 未运行'}`);
+  console.log(`• 资源路径:     ${asarPath}`);
+  console.log(`• 安全备份:     ${hasBackup ? '✅ 存在 (' + backupPath + ')' : '⚠️ 无备份'}`);
+  
+  const patched = isAsarPatched(asarPath);
+  const stagedPath = path.join(resourcesDir, 'app.asar.staged');
+  const hasStaged = !patched && fs.existsSync(stagedPath);
+  const statusLabel = patched
+    ? '🟢 已安装宿主汉化补丁'
+    : (hasStaged ? '🟡 预注入已就绪 (app.asar.staged 已挂载，关闭客户端后自动秒级生效)' : '⚪ 原生未修改状态');
+  console.log(`• 汉化状态:     ${statusLabel}`);
+
+  const pluginDir = getGlobalPluginTargetDir();
+  const hasPlugin = fs.existsSync(path.join(pluginDir, 'plugin.json'));
+  console.log(`• 社区插件:     ${hasPlugin ? '🟢 已就绪 (Rules & Skills 激活)' : '⚪ 未安装'}`);
+
+  const vsExtDir = findVsCodeExtensionDir(customPath);
+  if (vsExtDir) {
+    const vsPatched = isVsCodeExtensionPatched(vsExtDir);
+    console.log(`• VS Code 扩展: ${vsPatched ? '🟢 已安装全景汉化 (含 Webview 代理)' : '⚪ 原生未修改状态'} (${vsExtDir})`);
+  } else {
+    console.log('• VS Code 扩展: ⚪ 未检测到本机扩展');
+  }
+  console.log('');
+}
+
+function isAsarPatched(asarPath) {
+  try {
+    if (!asarPath || !fs.existsSync(asarPath)) return false;
+    const resourcesDir = path.dirname(asarPath);
+    const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
+    const currentFp = getAsarFingerprint(asarPath);
+
+    // 1. 【权威判据】优先匹配持久化 Hash/Manifest 清单
+    if (fs.existsSync(metaPath)) {
+      try {
+        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        if (meta && meta.patchedFingerprint && meta.patchedFingerprint === currentFp) {
+          return true;
+        }
+      } catch (e) {}
+    }
+
+    // 2. 【兜底判据】全量 30MB 预加载标记签名检索
+    const fd = fs.openSync(asarPath, 'r');
+    const stat = fs.fstatSync(fd);
+    const readLen = Math.min(stat.size, 30 * 1024 * 1024);
+    const buf = Buffer.alloc(readLen);
+    fs.readSync(fd, buf, 0, readLen, 0);
+    fs.closeSync(fd);
+    return buf.includes(Buffer.from('Antigravity Chinese Localization Injection'));
+  } catch (e) {
+    return false;
+  }
+}
+
+async function launch(customPath) {
+  const asarPath = findAsarPath(customPath);
+  if (!asarPath) {
+    console.error('❌ 未能找到 Antigravity 安装路径。');
+    process.exit(1);
+  }
+
+  console.log('🚀 [自愈启动器] 正在检查客户端汉化状态...');
+  if (!isAsarPatched(asarPath)) {
+    console.log('⚡ 检测到官方版本更新（补丁已被覆盖），正在自动静默重新注入汉化...');
+    install(customPath);
+    console.log('✅ 自动修复注入完成！');
+  } else {
+    if (os.platform() === 'darwin') {
+      syncMacAsarIntegrityAndSign(asarPath);
+    }
+    console.log('🟢 汉化补丁完好有效。');
+  }
+
+  console.log('🚀 正在启动/唤醒 Antigravity 客户端...');
+  const { spawn } = require('child_process');
+
+  if (process.platform === 'win32') {
+    const appDir = path.dirname(path.dirname(asarPath));
+    const exePath = path.join(appDir, 'Antigravity.exe');
+    if (fs.existsSync(exePath)) {
+      const child = spawn(exePath, [], { detached: true, stdio: 'ignore' });
+      child.unref();
+      console.log('✨ 客户端已启动。');
+    }
+  } else if (process.platform === 'darwin') {
+    const appIndex = asarPath.indexOf('.app');
+    const appPath = appIndex !== -1 ? asarPath.substring(0, appIndex + 4) : '/Applications/Antigravity.app';
+    try {
+      execSync(`open -a "${appPath}" || open -a "Antigravity" || true`, { stdio: 'ignore' });
+      console.log('✨ 客户端已启动/唤醒。');
+    } catch (e) {
+      console.log('✨ 客户端已启动/唤醒。');
+    }
+  } else {
+    try {
+      const child = spawn('antigravity', [], { detached: true, stdio: 'ignore' });
+      child.on('error', () => {
+        spawn('google-antigravity', [], { detached: true, stdio: 'ignore' }).unref();
+      });
+      child.unref();
+      console.log('✨ 客户端已启动。');
+    } catch (e) {}
+  }
+
+  await new Promise(r => setTimeout(r, 800));
+  await hotInjectViaCdp('install');
+}
+
+function watch(customPath) {
+  const asarPath = findAsarPath(customPath);
+  if (!asarPath) {
+    console.error('❌ 未能找到 Antigravity 安装路径。');
+    process.exit(1);
+  }
+
+  console.log('👀 [自动守护进程] 已启动！正在持续监听 Antigravity 更新...');
+  console.log(`📁 监控路径: ${asarPath}`);
+  console.log('💡 当官方触发自动升级覆盖文件时，守护进程将自动秒级完成汉化重新注入。\n');
+
+  const resourcesDir = path.dirname(asarPath);
+  let debounceTimer = null;
+
+  fs.watch(resourcesDir, (eventType, filename) => {
+    if (filename && filename.toLowerCase().includes('app.asar')) {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (!isProcessRunning() && !isAsarPatched(asarPath)) {
+          console.log('\n🔔 检测到 app.asar 变更且为未汉化状态（官方可能刚完成升级）！');
+          console.log('⚡ 正在自动重新注入汉化...');
+          try {
+            install(customPath);
+            console.log('🎉 自动更新注入成功！\n');
+          } catch (e) {
+            console.error('⚠️ 自动重新注入遇到冲突:', e.message);
+          }
+        }
+      }, 2000);
+    }
+  });
+}
+
+function getGlobalPluginTargetDir() {
+  if (process.env.AGY_PLUGIN_DIR) {
+    return process.env.AGY_PLUGIN_DIR;
+  }
+  const homedir = os.homedir();
+  return path.join(homedir, '.gemini', 'config', 'plugins', 'chinese-toolkit');
+}
+
+function installPlugin() {
+  console.log('🔌 正在安装 Antigravity 官方中文智能体插件...');
+  const srcPluginDir = path.join(PROJECT_ROOT, 'plugins', 'chinese-toolkit');
+  const targetDir = getGlobalPluginTargetDir();
+  
+  if (!fs.existsSync(srcPluginDir)) {
+    console.error('❌ 未找到插件源目录:', srcPluginDir);
+    return;
+  }
+  
+  const parentDir = path.dirname(targetDir);
+  if (!fs.existsSync(parentDir)) {
+    fs.mkdirSync(parentDir, { recursive: true });
+  }
+  
+  if (fs.existsSync(targetDir)) {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+  }
+  
+  fs.cpSync(srcPluginDir, targetDir, { recursive: true });
+  const guardScript = path.join(targetDir, 'scripts', 'chinese-guard.sh');
+  if (fs.existsSync(guardScript) && os.platform() !== 'win32') {
+    try { fs.chmodSync(guardScript, 0o755); } catch (_) {}
+  }
+  console.log(`✅ 插件已成功安装至全局目录: ${targetDir}`);
+  console.log('🎉 智能体中文交互规则 (Rules)、防漂移钩子 (Hooks) 与 本地化诊断技能 (Skills) 已就绪！\n');
+}
+
+function uninstallPlugin() {
+  console.log('🔌 正在卸载 Antigravity 官方中文智能体插件...');
+  const targetDir = getGlobalPluginTargetDir();
+  if (fs.existsSync(targetDir)) {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+    console.log(`✅ 已从全局目录移除插件: ${targetDir}\n`);
+  } else {
+    console.log('ℹ️ 全局插件目录中未发现该插件。\n');
+  }
+}
+
+function applyStagedWhenUnlocked(customPath) {
+  const asarPath = findAsarPath(customPath);
+  if (!asarPath) process.exit(0);
+  const resourcesDir = path.dirname(asarPath);
+  const stagedAsar = path.join(resourcesDir, 'app.asar.staged');
+  const swapOldAsar = path.join(resourcesDir, 'app.asar.swap-old');
+  const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
+
+  let ticks = 0;
+  const maxTicks = 144000; // 最多静默守候 12 小时 (300ms * 144000)
+  const timer = setInterval(() => {
+    ticks++;
+    if (ticks > maxTicks || !fs.existsSync(stagedAsar)) {
+      clearInterval(timer);
+      process.exit(0);
+    }
+    if (!isProcessRunning()) {
+      clearInterval(timer);
+      let swapped = false;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        try {
+          if (!swapped && fs.existsSync(asarPath)) {
+            if (fs.existsSync(swapOldAsar)) fs.rmSync(swapOldAsar, { force: true });
+            fs.renameSync(asarPath, swapOldAsar);
+            swapped = true;
+          }
+          fs.renameSync(stagedAsar, asarPath);
+          if (fs.existsSync(swapOldAsar)) {
+            try { fs.rmSync(swapOldAsar, { force: true }); } catch (_) {}
+          }
+          const newFp = getAsarFingerprint(asarPath);
+          fs.writeFileSync(metaPath, JSON.stringify({ patched: true, patchedFingerprint: newFp, timestamp: Date.now() }, null, 2), 'utf8');
+          break;
+        } catch (err) {
+          if (attempt < 9) {
+            try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150); } catch (_) {}
+          } else if (swapped && !fs.existsSync(asarPath) && fs.existsSync(swapOldAsar)) {
+            try { fs.renameSync(swapOldAsar, asarPath); } catch (_) {}
+          }
+        }
+      }
+      process.exit(0);
+    }
+  }, 300);
+}
+
+// CLI Routing
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  const command = args[0] || 'help';
+
+  let customPath = null;
+  const pathArgIdx = args.indexOf('--path');
+  if (pathArgIdx !== -1 && args[pathArgIdx + 1]) {
+    customPath = args[pathArgIdx + 1];
+  }
+
+  switch (command) {
+    case 'install':
+    case 'patch':
+      install(customPath);
+      if (args.includes('--with-plugin')) {
+        installPlugin();
+      }
+      // 弹性自适应联动：自动检测并为本机 VS Code 扩展注入全景汉化
+      try {
+        const vsExtDir = findVsCodeExtensionDir(customPath);
+        if (vsExtDir) {
+          console.log('\n📦 [全家桶联动] 检测到本机 VS Code 扩展，正在同步注入全景中文本地化...');
+          const vsRes = installVsCodePatch(vsExtDir);
+          if (vsRes.success) {
+            console.log(`✅ [全家桶联动] ${vsRes.message}`);
+          } else {
+            console.warn(`⚠️ [全家桶联动] ${vsRes.message}`);
+          }
+        }
+      } catch (vsErr) {
+        console.warn('⚠️ [全家桶联动] VS Code 扩展注入跳过:', vsErr.message);
+      }
+      break;
+    case 'apply-staged':
+      applyStagedWhenUnlocked(customPath);
+      break;
+    case 'install-plugin':
+    case 'plugin:install':
+      installPlugin();
+      break;
+    case 'uninstall-plugin':
+    case 'plugin:uninstall':
+      uninstallPlugin();
+      break;
+    case 'restore':
+    case 'uninstall':
+      restore(customPath);
+      // 弹性自适应联动：自动检测并恢复本机 VS Code 扩展至官方原生
+      try {
+        const vsExtDir = findVsCodeExtensionDir(customPath);
+        if (vsExtDir && isVsCodeExtensionPatched(vsExtDir)) {
+          console.log('\n🔄 [全家桶联动] 检测到本机 VS Code 扩展处于汉化状态，正在同步还原官方英文原版...');
+          const vsRes = restoreVsCodePatch(vsExtDir);
+          if (vsRes.success) {
+            console.log(`✅ [全家桶联动] ${vsRes.message}`);
+          }
+        }
+      } catch (_) {}
+      break;
+    case 'install:vscode':
+    case 'install-vscode':
+    case 'vscode:install': {
+      console.log('📦 正在为 VS Code 扩展 (Google Antigravity) 注入中文本地化...');
+      const res = installVsCodePatch(customPath);
+      if (res.success) {
+        console.log(`✅ ${res.message}`);
+      } else {
+        console.error(`❌ ${res.message}`);
+        process.exit(1);
+      }
+      break;
+    }
+    case 'restore:vscode':
+    case 'restore-vscode':
+    case 'vscode:restore': {
+      console.log('🔄 正在还原 VS Code 扩展 (Google Antigravity) 至官方英文原版...');
+      const res = restoreVsCodePatch(customPath);
+      if (res.success) {
+        console.log(`✅ ${res.message}`);
+      } else {
+        console.error(`❌ ${res.message}`);
+        process.exit(1);
+      }
+      break;
+    }
+    case 'status:vscode':
+    case 'vscode:status': {
+      const extDir = findVsCodeExtensionDir(customPath);
+      if (!extDir) {
+        console.log('ℹ️ 未检测到 VS Code 的 Google Antigravity 扩展目录。');
+      } else {
+        const patched = isVsCodeExtensionPatched(extDir);
+        console.log(`📁 扩展路径: ${extDir}`);
+        console.log(`🌐 汉化状态: ${patched ? '✅ 已汉化 (Patched)' : '⚪ 原生未汉化 (Unpatched)'}`);
+      }
+      break;
+    }
+    case 'check':
+    case 'preflight':
+      console.log('=== 执行前置环境全维健康预检 (Pre-flight Health Check) ===\n');
+      const preflightRes = runPreflightCheck(customPath);
+      for (const c of preflightRes.checks) {
+        const icon = c.passed ? '✅' : (c.critical ? '❌' : '⚠️');
+        console.log(`  ${icon} [${c.name}]: ${c.detail}`);
+      }
+      if (preflightRes.allPassed) {
+        console.log('\n🎉 所有核心前置条件 100% 就绪，可直接执行安装！');
+      } else {
+        console.log('\n❌ 部分核心前置条件未满足，请根据上方提示调整环境后再试。');
+      }
+      break;
+    case 'status':
+      status(customPath);
+      break;
+    case 'launch':
+      launch(customPath);
+      break;
+    case 'watch':
+    case 'daemon':
+      watch(customPath);
+      break;
+    case 'help':
+    default:
+      console.log(`
+Antigravity 全生态中文本地化套件 (Antigravity Chinese Universal Suite)
+
+用法:
+  node cli.js install              # 一键安装客户端 UI 汉化（自动执行前置预检并注入）
+  node cli.js restore              # 一键还原客户端（恢复官方英文原版）
+  node cli.js status               # 检测当前客户端与汉化状态
+  node cli.js install:vscode       # 一键安装 VS Code 扩展 (Google Antigravity) 中文汉化
+  node cli.js restore:vscode       # 一键还原 VS Code 扩展（恢复官方英文原版）
+  node cli.js status:vscode        # 检测当前 VS Code 扩展汉化状态
+  node cli.js install-plugin       # 一键安装 Antigravity 官方中文智能体插件
+  node cli.js uninstall-plugin     # 卸载官方中文智能体插件
+  node cli.js check                # 前置环境全维健康预检 (Node 弹性版本、NPX、客户端路径与进程)
+  node cli.js launch               # 自愈启动（自动检测版本覆盖并重打补丁后启动）
+  node cli.js watch                # 守护模式（后台监听官方更新，发现覆盖自动重新汉化）
+  node cli.js --path <dir>         # 指定自定义客户端或扩展路径
+
+选项:
+  --path <path>    指定 Antigravity 的安装目录、app.asar 或 VS Code 扩展路径
+  --with-plugin    在执行 install 时同步安装官方插件
+`);
+      break;
+  }
+}
+
+module.exports = {
+  getCandidateAsarPaths,
+  findAsarPath,
+  tryRecoverSwappedAsar,
+  isAsarPatched,
+  getAsarFingerprint,
+  runPreflightCheck,
+  patchMenuFile,
+  patchMainFile,
+  patchTrayFile,
+  patchWslFile,
+  patchIpcHandlersFile,
+  confirmCloseClient,
+  closeAntigravitySafely,
+  isProtectedEnvironment,
+  findVsCodeExtensionDir,
+  isVsCodeExtensionPatched,
+  installVsCodePatch,
+  restoreVsCodePatch
+};

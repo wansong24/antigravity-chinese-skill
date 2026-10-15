@@ -1,0 +1,48 @@
+{
+  "name": "antigravity-chinese-skill",
+  "version": "4.0.0",
+  "description": "Google Antigravity 全生态中文本地化 Skill 与一键汉化工具 (macOS & Windows 双平台版 | 原版思考 + 中文输出)",
+  "main": "cli.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "bin": {
+    "antigravity-cn": "./cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wansong24/antigravity-chinese-skill.git"
+  },
+  "scripts": {
+    "build:dict": "node tools/build-dict.js",
+    "audit": "node tools/ultimate-consistency-audit.js",
+    "scan:drift": "node tools/drift-detector.js",
+    "status": "node cli.js status",
+    "status:vscode": "node cli.js status:vscode",
+    "install-patch": "node cli.js install --with-plugin --no-kill",
+    "install:vscode": "node cli.js install:vscode",
+    "install:plugin": "node cli.js install-plugin",
+    "uninstall:plugin": "node cli.js uninstall-plugin",
+    "launch": "node cli.js launch --no-kill",
+    "restore": "node cli.js restore --no-kill",
+    "restore:vscode": "node cli.js restore:vscode"
+  },
+  "keywords": [
+    "antigravity",
+    "google-antigravity",
+    "antigravity-skill",
+    "chinese",
+    "zh-cn",
+    "i18n",
+    "localization",
+    "macos",
+    "windows",
+    "electron-patch",
+    "gemini"
+  ],
+  "author": "wansong24",
+  "license": "MIT",
+  "devDependencies": {
+    "@electron/asar": "3.2.14"
+  }
+}
