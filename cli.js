@@ -273,7 +273,7 @@ function patchUtilsFile(utilsFilePath, bundleFilePath) {
   }
 }
 
-async function hotInjectViaCdp(mode = 'install') {
+async function hotInjectViaCdp(mode = 'install', onlyIfMissing = false) {
   try {
     const homedir = os.homedir();
     const candidates = [
@@ -308,7 +308,7 @@ async function hotInjectViaCdp(mode = 'install') {
     });
 
     if (!Array.isArray(targets) || targets.length === 0) return false;
-    const pureBundle = getPureI18nBundle();
+    let pureBundle = null;
     let injectedCount = 0;
 
     for (const t of targets) {
@@ -317,6 +317,17 @@ async function hotInjectViaCdp(mode = 'install') {
           const client = new SimpleWebSocketClient(t.webSocketDebuggerUrl);
           await client.connect();
           if (mode === 'install') {
+            if (onlyIfMissing) {
+              const checkRes = await client.send('Runtime.evaluate', {
+                expression: 'Boolean(window.__AGY_I18N_DATA__)',
+                returnByValue: true
+              }).catch(() => null);
+              if (checkRes && checkRes.result && checkRes.result.value === true) {
+                client.close();
+                continue;
+              }
+            }
+            if (!pureBundle) pureBundle = getPureI18nBundle();
             await client.send('Page.enable').catch(() => {});
             await client.send('Page.addScriptToEvaluateOnNewDocument', { source: pureBundle }).catch(() => {});
             await client.send('Runtime.evaluate', {
@@ -345,10 +356,12 @@ async function hotInjectViaCdp(mode = 'install') {
       }
     }
     if (injectedCount > 0) {
-      if (mode === 'install') {
-        console.log(`⚡ [CDP 实时热挂载] 已向当前正在运行的 ${injectedCount} 个桌面版窗口实时注入中文界面（免重启立即生效）！`);
-      } else {
-        console.log(`⚡ [CDP 实时热还原] 已将当前正在运行的 ${injectedCount} 个桌面版窗口实时还原为英文界面！`);
+      if (!onlyIfMissing) {
+        if (mode === 'install') {
+          console.log(`⚡ [CDP 实时热挂载] 已向当前正在运行的 ${injectedCount} 个桌面版窗口实时注入中文界面（免重启立即生效）！`);
+        } else {
+          console.log(`⚡ [CDP 实时热还原] 已将当前正在运行的 ${injectedCount} 个桌面版窗口实时还原为英文界面！`);
+        }
       }
       return true;
     }
@@ -890,17 +903,8 @@ function install(customPath) {
         fs.renameSync(tempNewAsar, stagedAsar);
         if (fs.existsSync(tempExtractDir)) fs.rmSync(tempExtractDir, { recursive: true, force: true });
 
-        patchLanguageServerBinary(resourcesDir, true);
-
-        try {
-          const { spawn } = require('child_process');
-          const child = spawn(process.execPath, [__filename, 'apply-staged', '--path', asarPath], {
-            detached: true,
-            stdio: 'ignore',
-            windowsHide: true
-          });
-          child.unref();
-        } catch (_) {}
+        patchLanguageServerBinary(resourcesDir, false);
+        spawnDetachedStagedApplier(asarPath);
 
         void hotInjectViaCdp('install');
         console.log('\n✨ ==============================================');
@@ -1401,6 +1405,28 @@ function uninstallPlugin() {
   }
 }
 
+function spawnDetachedStagedApplier(asarPath) {
+  try {
+    if (os.platform() === 'win32') {
+      // 使用 WMI Win32_Process.Create 脱离宿主 Job Object，确保工具步骤结束或客户端关闭时守护进程不被系统强杀
+      const cmdLine = `"${process.execPath}" "${__filename}" apply-staged --path "${asarPath}"`;
+      const psEscaped = cmdLine.replace(/'/g, "''");
+      const psScript = `$si = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly; $si.ShowWindow = [uint16]0; Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='${psEscaped}'; ProcessStartupInformation=$si} | Out-Null`;
+      execSync(`powershell -NoProfile -WindowStyle Hidden -Command "${psScript}"`, { stdio: 'ignore', windowsHide: true });
+      return;
+    }
+  } catch (_) {}
+  try {
+    const { spawn } = require('child_process');
+    const child = spawn(process.execPath, [__filename, 'apply-staged', '--path', asarPath], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    });
+    child.unref();
+  } catch (_) {}
+}
+
 function applyStagedWhenUnlocked(customPath) {
   const asarPath = findAsarPath(customPath);
   if (!asarPath) process.exit(0);
@@ -1413,7 +1439,8 @@ function applyStagedWhenUnlocked(customPath) {
   const swapOldLs = lsPath ? lsPath + '.swap-old' : null;
 
   let ticks = 0;
-  const maxTicks = 144000; // 最多静默守候 12 小时 (300ms * 144000)
+  let checkingCdp = false;
+  const maxTicks = 2016000; // 最多静默守候 7 天 (300ms * 2016000)
   const timer = setInterval(() => {
     ticks++;
     const hasStagedAsar = fs.existsSync(stagedAsar);
@@ -1460,6 +1487,12 @@ function applyStagedWhenUnlocked(customPath) {
         } catch (_) {}
       }
       process.exit(0);
+    } else if (ticks % 5 === 0 && !checkingCdp) {
+      // 在用户关闭客户端触发 app.asar.staged 物理替换前，若发生服务重启或页面刷新，自动无感补齐 CDP 中文热注入
+      checkingCdp = true;
+      hotInjectViaCdp('install', true).finally(() => {
+        checkingCdp = false;
+      });
     }
   }, 300);
 }
@@ -1633,5 +1666,6 @@ module.exports = {
   installVsCodePatch,
   restoreVsCodePatch,
   patchLanguageServerBinary,
-  restoreLanguageServerBinary
+  restoreLanguageServerBinary,
+  spawnDetachedStagedApplier
 };
