@@ -741,7 +741,9 @@ function install(customPath) {
   const origUnpackedDir = asarPath + '.unpacked';
   try {
     if (extractSource === backupPath && fs.existsSync(origUnpackedDir) && !fs.existsSync(bakUnpackedLink)) {
-      try { fs.symlinkSync(origUnpackedDir, bakUnpackedLink, 'dir'); } catch (_) {}
+      try {
+        fs.symlinkSync(origUnpackedDir, bakUnpackedLink, os.platform() === 'win32' ? 'junction' : 'dir');
+      } catch (_) {}
     }
     const asarBin = path.join(__dirname, 'node_modules', '.bin', os.platform() === 'win32' ? 'asar.cmd' : 'asar');
     const extractCmd = fs.existsSync(asarBin)
