@@ -1440,61 +1440,75 @@ function applyStagedWhenUnlocked(customPath) {
 
   let ticks = 0;
   let checkingCdp = false;
-  const maxTicks = 2016000; // 最多静默守候 7 天 (300ms * 2016000)
+  // 启动时立即执行一次中文热注入修复
+  checkingCdp = true;
+  hotInjectViaCdp('install', true).finally(() => {
+    checkingCdp = false;
+  });
+
   const timer = setInterval(() => {
     ticks++;
     const hasStagedAsar = fs.existsSync(stagedAsar);
     const hasStagedLs = stagedLs && fs.existsSync(stagedLs);
-    if (ticks > maxTicks || (!hasStagedAsar && !hasStagedLs)) {
+    if (!hasStagedAsar && !hasStagedLs) {
       clearInterval(timer);
       process.exit(0);
     }
-    if (!isProcessRunning()) {
-      clearInterval(timer);
-      if (hasStagedAsar) {
-        let swapped = false;
-        for (let attempt = 0; attempt < 10; attempt++) {
-          try {
-            if (!swapped && fs.existsSync(asarPath)) {
-              if (fs.existsSync(swapOldAsar)) fs.rmSync(swapOldAsar, { force: true });
-              fs.renameSync(asarPath, swapOldAsar);
-              swapped = true;
-            }
-            fs.renameSync(stagedAsar, asarPath);
-            if (fs.existsSync(swapOldAsar)) {
-              try { fs.rmSync(swapOldAsar, { force: true }); } catch (_) {}
-            }
-            const newFp = getAsarFingerprint(asarPath);
-            fs.writeFileSync(metaPath, JSON.stringify({ patched: true, patchedFingerprint: newFp, timestamp: Date.now() }, null, 2), 'utf8');
-            break;
-          } catch (err) {
-            if (attempt < 9) {
-              try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150); } catch (_) {}
-            } else if (swapped && !fs.existsSync(asarPath) && fs.existsSync(swapOldAsar)) {
-              try { fs.renameSync(swapOldAsar, asarPath); } catch (_) {}
-            }
-          }
+
+    // 直接尝试原子重命名（零子进程开销）：若客户端正在运行则底层毫秒级返回 EBUSY/EPERM，绝不误退出
+    let asarDone = !hasStagedAsar;
+    if (hasStagedAsar) {
+      let swapped = false;
+      try {
+        if (fs.existsSync(asarPath)) {
+          if (fs.existsSync(swapOldAsar)) fs.rmSync(swapOldAsar, { force: true });
+          fs.renameSync(asarPath, swapOldAsar);
+          swapped = true;
+        }
+        fs.renameSync(stagedAsar, asarPath);
+        if (fs.existsSync(swapOldAsar)) {
+          try { fs.rmSync(swapOldAsar, { force: true }); } catch (_) {}
+        }
+        const newFp = getAsarFingerprint(asarPath);
+        fs.writeFileSync(metaPath, JSON.stringify({ patched: true, patchedFingerprint: newFp, timestamp: Date.now() }, null, 2), 'utf8');
+        asarDone = true;
+      } catch (_) {
+        if (swapped && !fs.existsSync(asarPath) && fs.existsSync(swapOldAsar)) {
+          try { fs.renameSync(swapOldAsar, asarPath); } catch (_) {}
         }
       }
-      if (hasStagedLs && lsPath) {
-        try {
-          if (swapOldLs && fs.existsSync(swapOldLs)) fs.rmSync(swapOldLs, { force: true });
-          if (fs.existsSync(lsPath) && swapOldLs) fs.renameSync(lsPath, swapOldLs);
-          fs.renameSync(stagedLs, lsPath);
-          if (swapOldLs && fs.existsSync(swapOldLs)) {
-            try { fs.rmSync(swapOldLs, { force: true }); } catch (_) {}
-          }
-        } catch (_) {}
+    }
+
+    let lsDone = !hasStagedLs;
+    if (hasStagedLs && lsPath) {
+      try {
+        if (swapOldLs && fs.existsSync(swapOldLs)) fs.rmSync(swapOldLs, { force: true });
+        if (fs.existsSync(lsPath) && swapOldLs) fs.renameSync(lsPath, swapOldLs);
+        fs.renameSync(stagedLs, lsPath);
+        if (swapOldLs && fs.existsSync(swapOldLs)) {
+          try { fs.rmSync(swapOldLs, { force: true }); } catch (_) {}
+        }
+        lsDone = true;
+      } catch (_) {
+        if (!fs.existsSync(lsPath) && swapOldLs && fs.existsSync(swapOldLs)) {
+          try { fs.renameSync(swapOldLs, lsPath); } catch (_) {}
+        }
       }
+    }
+
+    if (asarDone && lsDone) {
+      clearInterval(timer);
       process.exit(0);
-    } else if (ticks % 5 === 0 && !checkingCdp) {
-      // 在用户关闭客户端触发 app.asar.staged 物理替换前，若发生服务重启或页面刷新，自动无感补齐 CDP 中文热注入
+    }
+
+    // 客户端仍在运行且锁住文件时，每 1.5 秒检查一次窗口是否因服务重启/刷新丢失了中文状态，若丢失则毫秒级自动重注入
+    if (ticks % 3 === 0 && !checkingCdp) {
       checkingCdp = true;
       hotInjectViaCdp('install', true).finally(() => {
         checkingCdp = false;
       });
     }
-  }, 300);
+  }, 500);
 }
 
 // CLI Routing
