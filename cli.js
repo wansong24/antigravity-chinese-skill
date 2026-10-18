@@ -890,6 +890,8 @@ function install(customPath) {
         fs.renameSync(tempNewAsar, stagedAsar);
         if (fs.existsSync(tempExtractDir)) fs.rmSync(tempExtractDir, { recursive: true, force: true });
 
+        patchLanguageServerBinary(resourcesDir, true);
+
         try {
           const { spawn } = require('child_process');
           const child = spawn(process.execPath, [__filename, 'apply-staged', '--path', asarPath], {
@@ -926,6 +928,8 @@ function install(customPath) {
       try { fs.rmSync(residualStagedAsar, { force: true }); } catch (_) {}
     }
 
+    patchLanguageServerBinary(resourcesDir, false);
+
     // 写入汉化元数据指纹 (Hash/Manifest 根治架构)
     const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
     const newAsarFp = getAsarFingerprint(asarPath);
@@ -958,6 +962,92 @@ function install(customPath) {
     }
     process.exit(1);
   }
+}
+
+const LS_ORIG_TITLE_PROMPT = Buffer.from(
+  "Respond with ONLY a short conversation title (3-5 words, title-cased, no prefix) describing the USER's intent.",
+  'utf8'
+);
+const LS_ZH_TITLE_PROMPT = Buffer.from(
+  "Respond with ONLY a short Simplified Chinese title (必须纯简体中文, 4-10字, no prefix) for the intent.",
+  'utf8'
+);
+
+function getLanguageServerPath(resourcesDir) {
+  const binName = os.platform() === 'win32' ? 'language_server.exe' : 'language_server';
+  const candidate = path.join(resourcesDir, 'bin', binName);
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
+function patchLanguageServerBinary(resourcesDir, preferStaged = false) {
+  try {
+    const lsPath = getLanguageServerPath(resourcesDir);
+    if (!lsPath || LS_ORIG_TITLE_PROMPT.length !== LS_ZH_TITLE_PROMPT.length) return;
+    const swapOldLsPath = lsPath + '.swap-old';
+    if (fs.existsSync(swapOldLsPath)) {
+      try { fs.rmSync(swapOldLsPath, { force: true }); } catch (_) {}
+    }
+    const buf = fs.readFileSync(lsPath);
+    if (buf.indexOf(LS_ZH_TITLE_PROMPT) !== -1) {
+      return; // 已经注入中文标题提示词
+    }
+    const idx = buf.indexOf(LS_ORIG_TITLE_PROMPT);
+    if (idx === -1) return;
+
+    LS_ZH_TITLE_PROMPT.copy(buf, idx);
+    const stagedLsPath = lsPath + '.staged';
+    if (!preferStaged) {
+      try {
+        fs.writeFileSync(lsPath, buf);
+        if (fs.existsSync(stagedLsPath)) fs.rmSync(stagedLsPath, { force: true });
+        console.log('✅ 已注入左侧边栏会话标题默认中文生成规则 (language_server)');
+        return;
+      } catch (_) {
+        // Windows 下运行中的 .exe 允许同目录重命名，尝试通过 rename 热替换
+        try {
+          if (fs.existsSync(swapOldLsPath)) fs.rmSync(swapOldLsPath, { force: true });
+          fs.renameSync(lsPath, swapOldLsPath);
+          fs.writeFileSync(lsPath, buf);
+          try { fs.rmSync(swapOldLsPath, { force: true }); } catch (_) {}
+          if (fs.existsSync(stagedLsPath)) fs.rmSync(stagedLsPath, { force: true });
+          console.log('✅ 已热替换左侧边栏会话标题默认中文生成规则 (language_server)');
+          return;
+        } catch (renameErr) {
+          if (!fs.existsSync(lsPath) && fs.existsSync(swapOldLsPath)) {
+            try { fs.renameSync(swapOldLsPath, lsPath); } catch (_) {}
+          }
+        }
+      }
+    }
+    fs.writeFileSync(stagedLsPath, buf);
+    console.log('✨ 已预构建左侧边栏会话标题默认中文补丁 (language_server.staged)');
+  } catch (_) {}
+}
+
+function restoreLanguageServerBinary(resourcesDir) {
+  try {
+    const lsPath = getLanguageServerPath(resourcesDir);
+    if (!lsPath || LS_ORIG_TITLE_PROMPT.length !== LS_ZH_TITLE_PROMPT.length) return;
+    const stagedLsPath = lsPath + '.staged';
+    if (fs.existsSync(stagedLsPath)) {
+      try { fs.rmSync(stagedLsPath, { force: true }); } catch (_) {}
+    }
+    const buf = fs.readFileSync(lsPath);
+    const idx = buf.indexOf(LS_ZH_TITLE_PROMPT);
+    if (idx === -1) return;
+    LS_ORIG_TITLE_PROMPT.copy(buf, idx);
+    try {
+      fs.writeFileSync(lsPath, buf);
+    } catch (_) {
+      const swapOldLsPath = lsPath + '.swap-old';
+      try {
+        if (fs.existsSync(swapOldLsPath)) fs.rmSync(swapOldLsPath, { force: true });
+        fs.renameSync(lsPath, swapOldLsPath);
+        fs.writeFileSync(lsPath, buf);
+        try { fs.rmSync(swapOldLsPath, { force: true }); } catch (_) {}
+      } catch (_) {}
+    }
+  } catch (_) {}
 }
 
 function syncMacAsarIntegrityAndSign(asarPath) {
@@ -1083,6 +1173,7 @@ function restore(customPath) {
     // 清除元数据与可能残留的预注入包
     if (fs.existsSync(metaPath)) fs.rmSync(metaPath, { force: true });
     if (fs.existsSync(stagedPath)) fs.rmSync(stagedPath, { force: true });
+    restoreLanguageServerBinary(resourcesDir);
 
     if (os.platform() === 'darwin') {
       syncMacAsarIntegrityAndSign(asarPath);
@@ -1317,39 +1408,56 @@ function applyStagedWhenUnlocked(customPath) {
   const stagedAsar = path.join(resourcesDir, 'app.asar.staged');
   const swapOldAsar = path.join(resourcesDir, 'app.asar.swap-old');
   const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
+  const lsPath = getLanguageServerPath(resourcesDir);
+  const stagedLs = lsPath ? lsPath + '.staged' : null;
+  const swapOldLs = lsPath ? lsPath + '.swap-old' : null;
 
   let ticks = 0;
   const maxTicks = 144000; // 最多静默守候 12 小时 (300ms * 144000)
   const timer = setInterval(() => {
     ticks++;
-    if (ticks > maxTicks || !fs.existsSync(stagedAsar)) {
+    const hasStagedAsar = fs.existsSync(stagedAsar);
+    const hasStagedLs = stagedLs && fs.existsSync(stagedLs);
+    if (ticks > maxTicks || (!hasStagedAsar && !hasStagedLs)) {
       clearInterval(timer);
       process.exit(0);
     }
     if (!isProcessRunning()) {
       clearInterval(timer);
-      let swapped = false;
-      for (let attempt = 0; attempt < 10; attempt++) {
-        try {
-          if (!swapped && fs.existsSync(asarPath)) {
-            if (fs.existsSync(swapOldAsar)) fs.rmSync(swapOldAsar, { force: true });
-            fs.renameSync(asarPath, swapOldAsar);
-            swapped = true;
-          }
-          fs.renameSync(stagedAsar, asarPath);
-          if (fs.existsSync(swapOldAsar)) {
-            try { fs.rmSync(swapOldAsar, { force: true }); } catch (_) {}
-          }
-          const newFp = getAsarFingerprint(asarPath);
-          fs.writeFileSync(metaPath, JSON.stringify({ patched: true, patchedFingerprint: newFp, timestamp: Date.now() }, null, 2), 'utf8');
-          break;
-        } catch (err) {
-          if (attempt < 9) {
-            try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150); } catch (_) {}
-          } else if (swapped && !fs.existsSync(asarPath) && fs.existsSync(swapOldAsar)) {
-            try { fs.renameSync(swapOldAsar, asarPath); } catch (_) {}
+      if (hasStagedAsar) {
+        let swapped = false;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          try {
+            if (!swapped && fs.existsSync(asarPath)) {
+              if (fs.existsSync(swapOldAsar)) fs.rmSync(swapOldAsar, { force: true });
+              fs.renameSync(asarPath, swapOldAsar);
+              swapped = true;
+            }
+            fs.renameSync(stagedAsar, asarPath);
+            if (fs.existsSync(swapOldAsar)) {
+              try { fs.rmSync(swapOldAsar, { force: true }); } catch (_) {}
+            }
+            const newFp = getAsarFingerprint(asarPath);
+            fs.writeFileSync(metaPath, JSON.stringify({ patched: true, patchedFingerprint: newFp, timestamp: Date.now() }, null, 2), 'utf8');
+            break;
+          } catch (err) {
+            if (attempt < 9) {
+              try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150); } catch (_) {}
+            } else if (swapped && !fs.existsSync(asarPath) && fs.existsSync(swapOldAsar)) {
+              try { fs.renameSync(swapOldAsar, asarPath); } catch (_) {}
+            }
           }
         }
+      }
+      if (hasStagedLs && lsPath) {
+        try {
+          if (swapOldLs && fs.existsSync(swapOldLs)) fs.rmSync(swapOldLs, { force: true });
+          if (fs.existsSync(lsPath) && swapOldLs) fs.renameSync(lsPath, swapOldLs);
+          fs.renameSync(stagedLs, lsPath);
+          if (swapOldLs && fs.existsSync(swapOldLs)) {
+            try { fs.rmSync(swapOldLs, { force: true }); } catch (_) {}
+          }
+        } catch (_) {}
       }
       process.exit(0);
     }
@@ -1523,5 +1631,7 @@ module.exports = {
   findVsCodeExtensionDir,
   isVsCodeExtensionPatched,
   installVsCodePatch,
-  restoreVsCodePatch
+  restoreVsCodePatch,
+  patchLanguageServerBinary,
+  restoreLanguageServerBinary
 };
