@@ -319,7 +319,7 @@ async function hotInjectViaCdp(mode = 'install', onlyIfMissing = false) {
           if (mode === 'install') {
             if (onlyIfMissing) {
               const checkRes = await client.send('Runtime.evaluate', {
-                expression: 'Boolean(window.__AGY_I18N_DATA__)',
+                expression: 'Boolean(window.__AGY_I18N_DATA__ && document.body && !document.body.innerText.includes("New Conversation"))',
                 returnByValue: true
               }).catch(() => null);
               if (checkRes && checkRes.result && checkRes.result.value === true) {
@@ -1177,6 +1177,7 @@ function restore(customPath) {
     // 清除元数据与可能残留的预注入包
     if (fs.existsSync(metaPath)) fs.rmSync(metaPath, { force: true });
     if (fs.existsSync(stagedPath)) fs.rmSync(stagedPath, { force: true });
+    stopDetachedStagedApplier(resourcesDir);
     restoreLanguageServerBinary(resourcesDir);
 
     if (os.platform() === 'darwin') {
@@ -1405,11 +1406,49 @@ function uninstallPlugin() {
   }
 }
 
+function getWindowsStartupVbsPath() {
+  const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  return path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'AntigravityChineseGuard.vbs');
+}
+
+function stopDetachedStagedApplier(resourcesDir) {
+  try {
+    if (resourcesDir) {
+      const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
+      if (fs.existsSync(guardPath)) fs.rmSync(guardPath, { force: true });
+    }
+    if (os.platform() === 'win32') {
+      const vbsPath = getWindowsStartupVbsPath();
+      if (fs.existsSync(vbsPath)) fs.rmSync(vbsPath, { force: true });
+      execSync(`powershell -NoProfile -WindowStyle Hidden -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'node.exe'\\" | Where-Object { $_.CommandLine -like '*apply-staged*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore', windowsHide: true });
+    }
+  } catch (_) {}
+}
+
 function spawnDetachedStagedApplier(asarPath) {
   try {
+    const resourcesDir = path.dirname(asarPath);
+    const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
+    fs.writeFileSync(guardPath, JSON.stringify({ active: true, updatedAt: Date.now() }), 'utf8');
+
     if (os.platform() === 'win32') {
-      // 使用 WMI Win32_Process.Create 脱离宿主 Job Object，确保工具步骤结束或客户端关闭时守护进程不被系统强杀
+      // 清理旧的同名守护进程，防止重复堆积
+      try {
+        execSync(`powershell -NoProfile -WindowStyle Hidden -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'node.exe'\\" | Where-Object { $_.CommandLine -like '*apply-staged*' -and $_.ProcessId -ne ${process.pid} } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore', windowsHide: true });
+      } catch (_) {}
+
       const cmdLine = `"${process.execPath}" "${__filename}" apply-staged --path "${asarPath}"`;
+      // 写入开机静默自启 VBS，即使电脑关机重启也能自动恢复守护与替换
+      try {
+        const vbsPath = getWindowsStartupVbsPath();
+        const vbsDir = path.dirname(vbsPath);
+        if (fs.existsSync(vbsDir)) {
+          const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run "${cmdLine.replace(/"/g, '""')}", 0, False\r\n`;
+          fs.writeFileSync(vbsPath, vbsContent, 'utf8');
+        }
+      } catch (_) {}
+
+      // 使用 WMI Win32_Process.Create 脱离宿主 Job Object，确保工具步骤结束或客户端关闭时守护进程不被系统强杀
       const psEscaped = cmdLine.replace(/'/g, "''");
       const psScript = `$si = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly; $si.ShowWindow = [uint16]0; Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='${psEscaped}'; ProcessStartupInformation=$si} | Out-Null`;
       execSync(`powershell -NoProfile -WindowStyle Hidden -Command "${psScript}"`, { stdio: 'ignore', windowsHide: true });
@@ -1428,12 +1467,15 @@ function spawnDetachedStagedApplier(asarPath) {
 }
 
 function applyStagedWhenUnlocked(customPath) {
+  process.on('uncaughtException', () => {});
+  process.on('unhandledRejection', () => {});
   const asarPath = findAsarPath(customPath);
   if (!asarPath) process.exit(0);
   const resourcesDir = path.dirname(asarPath);
   const stagedAsar = path.join(resourcesDir, 'app.asar.staged');
   const swapOldAsar = path.join(resourcesDir, 'app.asar.swap-old');
   const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
+  const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
   const lsPath = getLanguageServerPath(resourcesDir);
   const stagedLs = lsPath ? lsPath + '.staged' : null;
   const swapOldLs = lsPath ? lsPath + '.swap-old' : null;
@@ -1442,7 +1484,7 @@ function applyStagedWhenUnlocked(customPath) {
   let checkingCdp = false;
   // 启动时立即执行一次中文热注入修复
   checkingCdp = true;
-  hotInjectViaCdp('install', true).finally(() => {
+  hotInjectViaCdp('install', true).catch(() => {}).finally(() => {
     checkingCdp = false;
   });
 
@@ -1450,13 +1492,15 @@ function applyStagedWhenUnlocked(customPath) {
     ticks++;
     const hasStagedAsar = fs.existsSync(stagedAsar);
     const hasStagedLs = stagedLs && fs.existsSync(stagedLs);
-    if (!hasStagedAsar && !hasStagedLs) {
+    const hasGuard = fs.existsSync(guardPath) || fs.existsSync(metaPath);
+
+    // 只有当用户主动执行 restore 清除了所有汉化标记与预注入包时，才退出常驻守护
+    if (!hasStagedAsar && !hasStagedLs && !hasGuard) {
       clearInterval(timer);
       process.exit(0);
     }
 
     // 直接尝试原子重命名（零子进程开销）：若客户端正在运行则底层毫秒级返回 EBUSY/EPERM，绝不误退出
-    let asarDone = !hasStagedAsar;
     if (hasStagedAsar) {
       let swapped = false;
       try {
@@ -1471,7 +1515,6 @@ function applyStagedWhenUnlocked(customPath) {
         }
         const newFp = getAsarFingerprint(asarPath);
         fs.writeFileSync(metaPath, JSON.stringify({ patched: true, patchedFingerprint: newFp, timestamp: Date.now() }, null, 2), 'utf8');
-        asarDone = true;
       } catch (_) {
         if (swapped && !fs.existsSync(asarPath) && fs.existsSync(swapOldAsar)) {
           try { fs.renameSync(swapOldAsar, asarPath); } catch (_) {}
@@ -1479,7 +1522,6 @@ function applyStagedWhenUnlocked(customPath) {
       }
     }
 
-    let lsDone = !hasStagedLs;
     if (hasStagedLs && lsPath) {
       try {
         if (swapOldLs && fs.existsSync(swapOldLs)) fs.rmSync(swapOldLs, { force: true });
@@ -1488,7 +1530,6 @@ function applyStagedWhenUnlocked(customPath) {
         if (swapOldLs && fs.existsSync(swapOldLs)) {
           try { fs.rmSync(swapOldLs, { force: true }); } catch (_) {}
         }
-        lsDone = true;
       } catch (_) {
         if (!fs.existsSync(lsPath) && swapOldLs && fs.existsSync(swapOldLs)) {
           try { fs.renameSync(swapOldLs, lsPath); } catch (_) {}
@@ -1496,15 +1537,10 @@ function applyStagedWhenUnlocked(customPath) {
       }
     }
 
-    if (asarDone && lsDone) {
-      clearInterval(timer);
-      process.exit(0);
-    }
-
-    // 客户端仍在运行且锁住文件时，每 1.5 秒检查一次窗口是否因服务重启/刷新丢失了中文状态，若丢失则毫秒级自动重注入
+    // 常驻每 1.5 秒巡检一次：无论是否关闭过客户端、无论服务重启多少次，一旦发现页面出现英文立即毫秒级热注入中文
     if (ticks % 3 === 0 && !checkingCdp) {
       checkingCdp = true;
-      hotInjectViaCdp('install', true).finally(() => {
+      hotInjectViaCdp('install', true).catch(() => {}).finally(() => {
         checkingCdp = false;
       });
     }
