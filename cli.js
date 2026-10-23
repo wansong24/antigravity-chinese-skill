@@ -933,6 +933,7 @@ function install(customPath) {
     }
 
     patchLanguageServerBinary(resourcesDir, false);
+    spawnDetachedStagedApplier(asarPath);
 
     // 写入汉化元数据指纹 (Hash/Manifest 根治架构)
     const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
@@ -1411,8 +1412,14 @@ function getWindowsStartupVbsPath() {
   return path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'AntigravityChineseGuard.vbs');
 }
 
+function getPersistentGuardFilePath() {
+  return path.join(os.homedir(), '.gemini', 'config', '.antigravity_chinese_guard.json');
+}
+
 function stopDetachedStagedApplier(resourcesDir) {
   try {
+    const globalGuardPath = getPersistentGuardFilePath();
+    if (fs.existsSync(globalGuardPath)) fs.rmSync(globalGuardPath, { force: true });
     if (resourcesDir) {
       const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
       if (fs.existsSync(guardPath)) fs.rmSync(guardPath, { force: true });
@@ -1427,9 +1434,17 @@ function stopDetachedStagedApplier(resourcesDir) {
 
 function spawnDetachedStagedApplier(asarPath) {
   try {
+    if (process.argv.includes('--from-daemon')) return;
     const resourcesDir = path.dirname(asarPath);
+    const guardData = JSON.stringify({ active: true, updatedAt: Date.now() });
     const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
-    fs.writeFileSync(guardPath, JSON.stringify({ active: true, updatedAt: Date.now() }), 'utf8');
+    fs.writeFileSync(guardPath, guardData, 'utf8');
+
+    // 将常驻守护标记同时写入用户目录 ~/.gemini/config/，防止 Antigravity 官方自动升级清空 resources 目录时误删守护标记
+    const globalGuardPath = getPersistentGuardFilePath();
+    const globalGuardDir = path.dirname(globalGuardPath);
+    if (!fs.existsSync(globalGuardDir)) fs.mkdirSync(globalGuardDir, { recursive: true });
+    fs.writeFileSync(globalGuardPath, guardData, 'utf8');
 
     if (os.platform() === 'win32') {
       // 清理旧的同名守护进程，防止重复堆积
@@ -1476,12 +1491,14 @@ function applyStagedWhenUnlocked(customPath) {
   const swapOldAsar = path.join(resourcesDir, 'app.asar.swap-old');
   const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
   const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
+  const globalGuardPath = getPersistentGuardFilePath();
   const lsPath = getLanguageServerPath(resourcesDir);
   const stagedLs = lsPath ? lsPath + '.staged' : null;
   const swapOldLs = lsPath ? lsPath + '.swap-old' : null;
 
   let ticks = 0;
   let checkingCdp = false;
+  let rebuildingUpdate = false;
   // 启动时立即执行一次中文热注入修复
   checkingCdp = true;
   hotInjectViaCdp('install', true).catch(() => {}).finally(() => {
@@ -1492,7 +1509,7 @@ function applyStagedWhenUnlocked(customPath) {
     ticks++;
     const hasStagedAsar = fs.existsSync(stagedAsar);
     const hasStagedLs = stagedLs && fs.existsSync(stagedLs);
-    const hasGuard = fs.existsSync(guardPath) || fs.existsSync(metaPath);
+    const hasGuard = fs.existsSync(globalGuardPath) || fs.existsSync(guardPath) || fs.existsSync(metaPath);
 
     // 只有当用户主动执行 restore 清除了所有汉化标记与预注入包时，才退出常驻守护
     if (!hasStagedAsar && !hasStagedLs && !hasGuard) {
@@ -1520,6 +1537,21 @@ function applyStagedWhenUnlocked(customPath) {
           try { fs.renameSync(swapOldAsar, asarPath); } catch (_) {}
         }
       }
+    } else if (ticks % 10 === 0 && !rebuildingUpdate && fs.existsSync(asarPath) && !isAsarPatched(asarPath)) {
+      // 官方自动更新覆盖了 resources 目录后，后台自动静默重打补丁（含 language_server 中文标题与 app.asar.staged）
+      rebuildingUpdate = true;
+      try {
+        patchLanguageServerBinary(resourcesDir, false);
+        const { spawn } = require('child_process');
+        const child = spawn(process.execPath, [__filename, 'install', '--no-kill', '--from-daemon'], {
+          stdio: 'ignore',
+          windowsHide: true
+        });
+        child.on('exit', () => { rebuildingUpdate = false; });
+        child.on('error', () => { rebuildingUpdate = false; });
+      } catch (_) {
+        rebuildingUpdate = false;
+      }
     }
 
     if (hasStagedLs && lsPath) {
@@ -1537,7 +1569,7 @@ function applyStagedWhenUnlocked(customPath) {
       }
     }
 
-    // 常驻每 1.5 秒巡检一次：无论是否关闭过客户端、无论服务重启多少次，一旦发现页面出现英文立即毫秒级热注入中文
+    // 常驻每 1.5 秒巡检一次：无论是否关闭过客户端、无论服务重启或官方升级多少次，一旦发现页面出现英文立即毫秒级热注入中文
     if (ticks % 3 === 0 && !checkingCdp) {
       checkingCdp = true;
       hotInjectViaCdp('install', true).catch(() => {}).finally(() => {
