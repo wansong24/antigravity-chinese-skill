@@ -1460,6 +1460,8 @@ function stopDetachedStagedApplier(resourcesDir) {
       } catch (_) {}
       const vbsPath = getWindowsStartupVbsPath();
       if (fs.existsSync(vbsPath)) fs.rmSync(vbsPath, { force: true });
+      const configVbsPath = path.join(os.homedir(), '.gemini', 'config', 'AntigravityChineseGuard.vbs');
+      if (fs.existsSync(configVbsPath)) fs.rmSync(configVbsPath, { force: true });
       execSync(`powershell -NoProfile -WindowStyle Hidden -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'node.exe'\\" | Where-Object { $_.CommandLine -like '*apply-staged*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore', windowsHide: true });
     }
   } catch (_) {}
@@ -1489,14 +1491,16 @@ function spawnDetachedStagedApplier(asarPath) {
       const cmdLine = `"${process.execPath}" "${__filename}" apply-staged`;
       // 写入开机静默自启 VBS + Windows 计划任务（每分钟巡检自愈），即使守护进程被升级安装器强杀也能在 60 秒内无窗自动复活
       try {
+        const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run "${cmdLine.replace(/"/g, '""')}", 0, False\r\n`;
+        const configVbsPath = path.join(globalGuardDir, 'AntigravityChineseGuard.vbs');
+        fs.writeFileSync(configVbsPath, vbsContent, 'utf8');
+        try {
+          execSync(`schtasks /Create /TN "AntigravityChineseGuard" /TR "wscript.exe \\"${configVbsPath}\\"" /SC MINUTE /MO 1 /F`, { stdio: 'ignore', windowsHide: true });
+        } catch (_) {}
         const vbsPath = getWindowsStartupVbsPath();
         const vbsDir = path.dirname(vbsPath);
         if (fs.existsSync(vbsDir)) {
-          const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run "${cmdLine.replace(/"/g, '""')}", 0, False\r\n`;
           fs.writeFileSync(vbsPath, vbsContent, 'utf8');
-          try {
-            execSync(`schtasks /Create /TN "AntigravityChineseGuard" /TR "wscript.exe //B //NoLogo \\"${vbsPath}\\"" /SC MINUTE /MO 1 /F`, { stdio: 'ignore', windowsHide: true });
-          } catch (_) {}
         }
       } catch (_) {}
 
