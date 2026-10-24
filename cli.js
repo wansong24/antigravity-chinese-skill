@@ -205,6 +205,23 @@ function getPureI18nBundle() {
     window.__AGY_I18N_DATA__ = ${dictContent.trim()};
     ${runtimeContent}
     if (window.__AGY_RUN_FULL_SCAN__) window.__AGY_RUN_FULL_SCAN__();
+    if (window.electronUpdater && !window.__AGY_AUTO_UPDATE_HOOKED__) {
+      window.__AGY_AUTO_UPDATE_HOOKED__ = true;
+      var __triggerAutoUpdate = function(state) {
+        if (state && state.type === 'ready' && !window.__AGY_UPDATE_TRIGGERED__) {
+          window.__AGY_UPDATE_TRIGGERED__ = true;
+          setTimeout(function() {
+            try { window.electronUpdater.quitAndInstall(); } catch (_) {}
+          }, 12000);
+        }
+      };
+      if (typeof window.electronUpdater.onStateChanged === 'function') {
+        window.electronUpdater.onStateChanged(__triggerAutoUpdate);
+      }
+      if (typeof window.electronUpdater.getState === 'function') {
+        Promise.resolve(window.electronUpdater.getState()).then(__triggerAutoUpdate).catch(function() {});
+      }
+    }
   } catch(e) {
     console.error('[AGY-i18n] Runtime Injection Error:', e);
   }
@@ -319,7 +336,7 @@ async function hotInjectViaCdp(mode = 'install', onlyIfMissing = false) {
           if (mode === 'install') {
             if (onlyIfMissing) {
               const checkRes = await client.send('Runtime.evaluate', {
-                expression: 'Boolean(window.__AGY_I18N_DATA__ && document.body && !document.body.innerText.includes("New Conversation"))',
+                expression: 'Boolean(window.__AGY_I18N_DATA__ && window.__AGY_AUTO_UPDATE_HOOKED__ && document.body && !document.body.innerText.includes("New Conversation"))',
                 returnByValue: true
               }).catch(() => null);
               if (checkRes && checkRes.result && checkRes.result.value === true) {
@@ -557,10 +574,17 @@ function patchUpdaterFile(updaterFilePath) {
     { from: 'MenuUpdateStep["CheckForUpdates"] = "Check for Updates"', to: 'MenuUpdateStep["CheckForUpdates"] = "检查更新"' },
     { from: 'MenuUpdateStep["CheckingForUpdates"] = "Checking for Updates..."', to: 'MenuUpdateStep["CheckingForUpdates"] = "正在检查更新..."' },
     { from: 'MenuUpdateStep["DownloadingUpdate"] = "Downloading Update..."', to: 'MenuUpdateStep["DownloadingUpdate"] = "正在下载更新..."' },
-    { from: 'MenuUpdateStep["RestartToUpdate"] = "Restart to Update"', to: 'MenuUpdateStep["RestartToUpdate"] = "重启以应用更新"' }
+    { from: 'MenuUpdateStep["RestartToUpdate"] = "Restart to Update"', to: 'MenuUpdateStep["RestartToUpdate"] = "重启以应用更新"' },
+    { from: 'electron_updater_1.autoUpdater.quitAndInstall();', to: 'electron_updater_1.autoUpdater.quitAndInstall(true, true);' }
   ];
   for (const r of replacements) {
     content = content.split(r.from).join(r.to);
+  }
+  if (!content.includes('__AGY_AUTO_INSTALL_ON_DOWNLOAD__')) {
+    content = content.replace(
+      'updateMenuState(MenuUpdateStep.RestartToUpdate);',
+      'updateMenuState(MenuUpdateStep.RestartToUpdate);\n        /* __AGY_AUTO_INSTALL_ON_DOWNLOAD__ */ setTimeout(() => { try { electron_updater_1.autoUpdater.quitAndInstall(true, true); } catch (_) {} }, 15000);'
+    );
   }
   fs.writeFileSync(updaterFilePath, content, 'utf-8');
 }
@@ -1416,15 +1440,24 @@ function getPersistentGuardFilePath() {
   return path.join(os.homedir(), '.gemini', 'config', '.antigravity_chinese_guard.json');
 }
 
+function getGuardPidFilePath() {
+  return path.join(os.homedir(), '.gemini', 'config', '.antigravity_chinese_guard.pid');
+}
+
 function stopDetachedStagedApplier(resourcesDir) {
   try {
     const globalGuardPath = getPersistentGuardFilePath();
     if (fs.existsSync(globalGuardPath)) fs.rmSync(globalGuardPath, { force: true });
+    const pidFile = getGuardPidFilePath();
+    if (fs.existsSync(pidFile)) fs.rmSync(pidFile, { force: true });
     if (resourcesDir) {
       const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
       if (fs.existsSync(guardPath)) fs.rmSync(guardPath, { force: true });
     }
     if (os.platform() === 'win32') {
+      try {
+        execSync('schtasks /Delete /TN "AntigravityChineseGuard" /F', { stdio: 'ignore', windowsHide: true });
+      } catch (_) {}
       const vbsPath = getWindowsStartupVbsPath();
       if (fs.existsSync(vbsPath)) fs.rmSync(vbsPath, { force: true });
       execSync(`powershell -NoProfile -WindowStyle Hidden -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'node.exe'\\" | Where-Object { $_.CommandLine -like '*apply-staged*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore', windowsHide: true });
@@ -1438,7 +1471,7 @@ function spawnDetachedStagedApplier(asarPath) {
     const resourcesDir = path.dirname(asarPath);
     const guardData = JSON.stringify({ active: true, updatedAt: Date.now() });
     const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
-    fs.writeFileSync(guardPath, guardData, 'utf8');
+    try { fs.writeFileSync(guardPath, guardData, 'utf8'); } catch (_) {}
 
     // 将常驻守护标记同时写入用户目录 ~/.gemini/config/，防止 Antigravity 官方自动升级清空 resources 目录时误删守护标记
     const globalGuardPath = getPersistentGuardFilePath();
@@ -1452,14 +1485,18 @@ function spawnDetachedStagedApplier(asarPath) {
         execSync(`powershell -NoProfile -WindowStyle Hidden -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'node.exe'\\" | Where-Object { $_.CommandLine -like '*apply-staged*' -and $_.ProcessId -ne ${process.pid} } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore', windowsHide: true });
       } catch (_) {}
 
-      const cmdLine = `"${process.execPath}" "${__filename}" apply-staged --path "${asarPath}"`;
-      // 写入开机静默自启 VBS，即使电脑关机重启也能自动恢复守护与替换
+      // 命令行不携带 antigravity 安装目录路径，防止官方 NSIS 升级器 Restart Manager 扫描路径关联强杀守护进程
+      const cmdLine = `"${process.execPath}" "${__filename}" apply-staged`;
+      // 写入开机静默自启 VBS + Windows 计划任务（每分钟巡检自愈），即使守护进程被升级安装器强杀也能在 60 秒内无窗自动复活
       try {
         const vbsPath = getWindowsStartupVbsPath();
         const vbsDir = path.dirname(vbsPath);
         if (fs.existsSync(vbsDir)) {
           const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run "${cmdLine.replace(/"/g, '""')}", 0, False\r\n`;
           fs.writeFileSync(vbsPath, vbsContent, 'utf8');
+          try {
+            execSync(`schtasks /Create /TN "AntigravityChineseGuard" /TR "wscript.exe //B //NoLogo \\"${vbsPath}\\"" /SC MINUTE /MO 1 /F`, { stdio: 'ignore', windowsHide: true });
+          } catch (_) {}
         }
       } catch (_) {}
 
@@ -1472,7 +1509,7 @@ function spawnDetachedStagedApplier(asarPath) {
   } catch (_) {}
   try {
     const { spawn } = require('child_process');
-    const child = spawn(process.execPath, [__filename, 'apply-staged', '--path', asarPath], {
+    const child = spawn(process.execPath, [__filename, 'apply-staged'], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true
@@ -1484,9 +1521,29 @@ function spawnDetachedStagedApplier(asarPath) {
 function applyStagedWhenUnlocked(customPath) {
   process.on('uncaughtException', () => {});
   process.on('unhandledRejection', () => {});
+
+  // 单实例进程锁：计划任务每分钟触发时，若已有存活的守护进程，1 毫秒内直接静默退出
+  const pidFile = getGuardPidFilePath();
+  if (fs.existsSync(pidFile)) {
+    try {
+      const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+      if (existingPid && existingPid !== process.pid) {
+        process.kill(existingPid, 0);
+        process.exit(0);
+      }
+    } catch (_) {}
+  }
+  try {
+    const pidDir = path.dirname(pidFile);
+    if (!fs.existsSync(pidDir)) fs.mkdirSync(pidDir, { recursive: true });
+    fs.writeFileSync(pidFile, String(process.pid), 'utf8');
+  } catch (_) {}
+
   const asarPath = findAsarPath(customPath);
   if (!asarPath) process.exit(0);
   const resourcesDir = path.dirname(asarPath);
+  const appRootDir = path.dirname(resourcesDir);
+  const appExePath = path.join(appRootDir, 'Antigravity.exe');
   const stagedAsar = path.join(resourcesDir, 'app.asar.staged');
   const swapOldAsar = path.join(resourcesDir, 'app.asar.swap-old');
   const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
@@ -1496,9 +1553,36 @@ function applyStagedWhenUnlocked(customPath) {
   const stagedLs = lsPath ? lsPath + '.staged' : null;
   const swapOldLs = lsPath ? lsPath + '.swap-old' : null;
 
+  function isUpdaterInstallerRunning() {
+    if (os.platform() !== 'win32') return false;
+    try {
+      const out = execSync('tasklist /NH', { encoding: 'utf-8', windowsHide: true }).toLowerCase();
+      return out.includes('installer.exe') || out.includes('antigravity-x64.exe') || out.includes('uninstall antigravity.exe');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function ensureAntigravityRunning() {
+    if (os.platform() !== 'win32' || !fs.existsSync(appExePath)) return;
+    try {
+      const { spawn } = require('child_process');
+      const child = spawn(appExePath, [], {
+        cwd: appRootDir,
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: false
+      });
+      child.unref();
+    } catch (_) {}
+  }
+
   let ticks = 0;
   let checkingCdp = false;
   let rebuildingUpdate = false;
+  let missingClientCount = 0;
+  let wasUpdating = false;
+  let lastAutoLaunchTs = 0;
   // 启动时立即执行一次中文热注入修复
   checkingCdp = true;
   hotInjectViaCdp('install', true).catch(() => {}).finally(() => {
@@ -1515,6 +1599,19 @@ function applyStagedWhenUnlocked(customPath) {
     if (!hasStagedAsar && !hasStagedLs && !hasGuard) {
       clearInterval(timer);
       process.exit(0);
+    }
+
+    // 若官方刚完成自动升级（app.asar 修改时间比旧的 staged 更新且未打补丁），丢弃旧版本 staged 以防覆盖新版本
+    if (hasStagedAsar && fs.existsSync(asarPath)) {
+      try {
+        const asarMtime = fs.statSync(asarPath).mtimeMs;
+        const stagedMtime = fs.statSync(stagedAsar).mtimeMs;
+        if (asarMtime > stagedMtime + 5000 && !isAsarPatched(asarPath)) {
+          fs.rmSync(stagedAsar, { force: true });
+          if (hasStagedLs && stagedLs) fs.rmSync(stagedLs, { force: true });
+          return;
+        }
+      } catch (_) {}
     }
 
     // 直接尝试原子重命名（零子进程开销）：若客户端正在运行则底层毫秒级返回 EBUSY/EPERM，绝不误退出
@@ -1537,24 +1634,27 @@ function applyStagedWhenUnlocked(customPath) {
           try { fs.renameSync(swapOldAsar, asarPath); } catch (_) {}
         }
       }
-    } else if (ticks % 10 === 0 && !rebuildingUpdate && fs.existsSync(asarPath) && !isAsarPatched(asarPath)) {
-      // 官方自动更新覆盖了 resources 目录后，后台自动静默重打补丁（含 language_server 中文标题与 app.asar.staged）
-      rebuildingUpdate = true;
+    } else if (ticks % 10 === 0 && !rebuildingUpdate && fs.existsSync(asarPath) && !isAsarPatched(asarPath) && !isUpdaterInstallerRunning()) {
+      // 官方自动更新覆盖了 resources 目录且安装器已释放文件（修改时间稳定超过 8 秒）后，后台自动静默重打补丁
       try {
-        patchLanguageServerBinary(resourcesDir, false);
-        const { spawn } = require('child_process');
-        const child = spawn(process.execPath, [__filename, 'install', '--no-kill', '--from-daemon'], {
-          stdio: 'ignore',
-          windowsHide: true
-        });
-        child.on('exit', () => { rebuildingUpdate = false; });
-        child.on('error', () => { rebuildingUpdate = false; });
+        const ageMs = Date.now() - fs.statSync(asarPath).mtimeMs;
+        if (ageMs > 8000) {
+          rebuildingUpdate = true;
+          patchLanguageServerBinary(resourcesDir, false);
+          const { spawn } = require('child_process');
+          const child = spawn(process.execPath, [__filename, 'install', '--no-kill', '--from-daemon'], {
+            stdio: 'ignore',
+            windowsHide: true
+          });
+          child.on('exit', () => { rebuildingUpdate = false; });
+          child.on('error', () => { rebuildingUpdate = false; });
+        }
       } catch (_) {
         rebuildingUpdate = false;
       }
     }
 
-    if (hasStagedLs && lsPath) {
+    if (hasStagedLs && lsPath && fs.existsSync(stagedLs)) {
       try {
         if (swapOldLs && fs.existsSync(swapOldLs)) fs.rmSync(swapOldLs, { force: true });
         if (fs.existsSync(lsPath) && swapOldLs) fs.renameSync(lsPath, swapOldLs);
@@ -1565,6 +1665,27 @@ function applyStagedWhenUnlocked(customPath) {
       } catch (_) {
         if (!fs.existsSync(lsPath) && swapOldLs && fs.existsSync(swapOldLs)) {
           try { fs.renameSync(swapOldLs, lsPath); } catch (_) {}
+        }
+      }
+    }
+
+    // 开机自启与自动更新后自动重开守护（开机第 1 秒及随后每 3 秒检测一次）
+    if (ticks === 2 || ticks % 6 === 0) {
+      const now = Date.now();
+      if (isProcessRunning()) {
+        missingClientCount = 0;
+        wasUpdating = false;
+      } else if (isUpdaterInstallerRunning()) {
+        wasUpdating = true;
+        missingClientCount = 1;
+      } else {
+        missingClientCount++;
+        // 开机首次检测、更新安装器刚结束、或连续 2 次（约 6 秒）未运行时，自动拉起 Antigravity 客户端
+        if ((ticks === 2 || wasUpdating || missingClientCount >= 2) && (now - lastAutoLaunchTs > 10000)) {
+          lastAutoLaunchTs = now;
+          wasUpdating = false;
+          missingClientCount = 0;
+          ensureAntigravityRunning();
         }
       }
     }
