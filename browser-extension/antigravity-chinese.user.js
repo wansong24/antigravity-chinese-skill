@@ -1,11 +1,15 @@
 // ==UserScript==
 // @name         Antigravity 远程访问中文汉化 (Remote Control Chinese Localization)
 // @namespace    https://github.com/wansong24/antigravity-chinese-skill
-// @version      4.1.0
-// @description  为 Google Antigravity 远程控制网页端 (antigravity.google/r/*) 与云端 Web 视图提供全自动简体中文汉化
+// @version      4.2.0
+// @description  为 Google Antigravity 远程控制网页端 (antigravity.google.com / antigravity.google) 与云端 Web 视图提供全自动简体中文汉化
 // @author       wansong24
+// @match        https://antigravity.google.com/*
+// @match        https://*.antigravity.google.com/*
 // @match        https://antigravity.google/*
 // @match        https://*.antigravity.google/*
+// @match        https://antigravity.static.usercontent.goog/*
+// @match        https://*.usercontent.goog/*
 // @match        https://jetski.corp.google.com/*
 // @match        https://127.0.0.1/*
 // @match        https://localhost/*
@@ -2303,6 +2307,11 @@
     "menu)": "菜单)",
     "Drop to add to group": "拖放以添加至分组",
     "Open Remote Control": "打开远程控制",
+    "Launch Remote Control": "启动远程控制",
+    "Remote Conversations": "远程会话",
+    "Remote Control Instances": "远程控制实例",
+    "Loading instances...": "正在加载实例...",
+    "+ New Conversation": "+ 新建会话",
     "Remote Sessions": "远程会话",
     "Remote Session": "远程会话",
     "Connecting...": "正在连接...",

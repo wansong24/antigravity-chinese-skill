@@ -267,13 +267,17 @@ function buildRemoteWebExtension() {
     const manifest = {
       manifest_version: 3,
       name: 'Antigravity Chinese Localization (远程访问与网页端中文汉化)',
-      version: '4.1.0',
-      description: '为 Google Antigravity 远程控制网页端 (Remote Control / antigravity.google) 与云端 Web 视图提供实时简体中文汉化',
+      version: '4.2.0',
+      description: '为 Google Antigravity 远程控制网页端 (antigravity.google.com / antigravity.google) 与云端 Web 视图提供实时简体中文汉化',
       content_scripts: [
         {
           matches: [
+            'https://antigravity.google.com/*',
+            'https://*.antigravity.google.com/*',
             'https://antigravity.google/*',
             'https://*.antigravity.google/*',
+            'https://antigravity.static.usercontent.goog/*',
+            'https://*.usercontent.goog/*',
             'https://jetski.corp.google.com/*',
             'https://127.0.0.1/*',
             'http://127.0.0.1/*',
@@ -282,7 +286,9 @@ function buildRemoteWebExtension() {
           ],
           js: ['content.js'],
           run_at: 'document_end',
-          all_frames: true
+          all_frames: true,
+          match_about_blank: true,
+          match_origin_as_fallback: true
         }
       ]
     };
@@ -294,11 +300,15 @@ function buildRemoteWebExtension() {
       '// ==UserScript==',
       '// @name         Antigravity 远程访问中文汉化 (Remote Control Chinese Localization)',
       '// @namespace    https://github.com/wansong24/antigravity-chinese-skill',
-      '// @version      4.1.0',
-      '// @description  为 Google Antigravity 远程控制网页端 (antigravity.google/r/*) 与云端 Web 视图提供全自动简体中文汉化',
+      '// @version      4.2.0',
+      '// @description  为 Google Antigravity 远程控制网页端 (antigravity.google.com / antigravity.google) 与云端 Web 视图提供全自动简体中文汉化',
       '// @author       wansong24',
+      '// @match        https://antigravity.google.com/*',
+      '// @match        https://*.antigravity.google.com/*',
       '// @match        https://antigravity.google/*',
       '// @match        https://*.antigravity.google/*',
+      '// @match        https://antigravity.static.usercontent.goog/*',
+      '// @match        https://*.usercontent.goog/*',
       '// @match        https://jetski.corp.google.com/*',
       '// @match        https://127.0.0.1/*',
       '// @match        https://localhost/*',
