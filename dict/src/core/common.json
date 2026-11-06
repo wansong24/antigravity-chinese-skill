@@ -2286,6 +2286,8 @@
   "menu)": "菜单)",
   "Drop to add to group": "拖放以添加至分组",
   "Open Remote Control": "打开远程控制",
+  "Remote Sessions": "远程会话",
+  "Remote Session": "远程会话",
   "Connecting...": "正在连接...",
   "Reconnecting...": "正在重新连接...",
   "Switch Instance": "切换实例",
