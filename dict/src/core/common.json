@@ -2284,7 +2284,13 @@
   "in the top left.": "图标搜索会话。",
   "View archived in the sidebar": "可在侧边栏查看已归档会话",
   "menu)": "菜单)",
-  "Drop to add to group": "拖放以添加至分组"
+  "Drop to add to group": "拖放以添加至分组",
+  "Open Remote Control": "打开远程控制",
+  "Connecting...": "正在连接...",
+  "Reconnecting...": "正在重新连接...",
+  "Switch Instance": "切换实例",
+  "Instances": "实例列表",
+  "Reload Host": "重新加载主机"
 }
 
 

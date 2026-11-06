@@ -258,6 +258,62 @@ try {
 `;
 }
 
+function buildRemoteWebExtension() {
+  try {
+    const extDir = path.join(PROJECT_ROOT, 'browser-extension');
+    if (!fs.existsSync(extDir)) fs.mkdirSync(extDir, { recursive: true });
+    const pureBundle = getPureI18nBundle();
+
+    const manifest = {
+      manifest_version: 3,
+      name: 'Antigravity Chinese Localization (远程访问与网页端中文汉化)',
+      version: '4.1.0',
+      description: '为 Google Antigravity 远程控制网页端 (Remote Control / antigravity.google) 与云端 Web 视图提供实时简体中文汉化',
+      content_scripts: [
+        {
+          matches: [
+            'https://antigravity.google/*',
+            'https://*.antigravity.google/*',
+            'https://jetski.corp.google.com/*',
+            'https://127.0.0.1/*',
+            'http://127.0.0.1/*',
+            'https://localhost/*',
+            'http://localhost/*'
+          ],
+          js: ['content.js'],
+          run_at: 'document_end',
+          all_frames: true
+        }
+      ]
+    };
+
+    fs.writeFileSync(path.join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+    fs.writeFileSync(path.join(extDir, 'content.js'), pureBundle, 'utf8');
+
+    const userScriptHeader = [
+      '// ==UserScript==',
+      '// @name         Antigravity 远程访问中文汉化 (Remote Control Chinese Localization)',
+      '// @namespace    https://github.com/wansong24/antigravity-chinese-skill',
+      '// @version      4.1.0',
+      '// @description  为 Google Antigravity 远程控制网页端 (antigravity.google/r/*) 与云端 Web 视图提供全自动简体中文汉化',
+      '// @author       wansong24',
+      '// @match        https://antigravity.google/*',
+      '// @match        https://*.antigravity.google/*',
+      '// @match        https://jetski.corp.google.com/*',
+      '// @match        https://127.0.0.1/*',
+      '// @match        https://localhost/*',
+      '// @run-at       document-end',
+      '// @grant        none',
+      '// ==/UserScript==',
+      ''
+    ].join('\n');
+    fs.writeFileSync(path.join(extDir, 'antigravity-chinese.user.js'), userScriptHeader + pureBundle, 'utf8');
+    console.log(`🌐 已同步生成远程访问浏览器扩展与油猴脚本: ${extDir}`);
+  } catch (e) {
+    console.warn('⚠️ 生成远程访问扩展包时遇到警告:', e.message);
+  }
+}
+
 function patchUtilsFile(utilsFilePath, bundleFilePath) {
   if (!fs.existsSync(utilsFilePath)) return;
   fs.writeFileSync(bundleFilePath, getPureI18nBundle(), 'utf-8');
@@ -275,12 +331,21 @@ function patchUtilsFile(utilsFilePath, bundleFilePath) {
                 const __fs = require('fs');
                 const __p = path_1.default.join(__dirname, 'agy-i18n-bundle.js');
                 if (__fs.existsSync(__p)) {
-                    win.webContents.executeJavaScript(__fs.readFileSync(__p, 'utf8')).catch(() => {});
+                    const __code = __fs.readFileSync(__p, 'utf8');
+                    win.webContents.executeJavaScript(__code).catch(() => {});
+                    if (win.webContents.mainFrame && Array.isArray(win.webContents.mainFrame.framesInSubtree)) {
+                        for (const __frame of win.webContents.mainFrame.framesInSubtree) {
+                            if (__frame && typeof __frame.executeJavaScript === 'function') {
+                                __frame.executeJavaScript(__code).catch(() => {});
+                            }
+                        }
+                    }
                 }
             } catch (_) {}
         };
         win.webContents.on('dom-ready', __agyInject);
         win.webContents.on('did-finish-load', __agyInject);
+        win.webContents.on('did-frame-finish-load', __agyInject);
     } catch (_) {}
     ${markerEnd}
     void win.loadURL(url);`;
@@ -329,7 +394,7 @@ async function hotInjectViaCdp(mode = 'install', onlyIfMissing = false) {
     let injectedCount = 0;
 
     for (const t of targets) {
-      if (t.type === 'page' && t.webSocketDebuggerUrl && !String(t.url || '').startsWith('data:')) {
+      if ((t.type === 'page' || t.type === 'iframe' || t.type === 'webview') && t.webSocketDebuggerUrl && !String(t.url || '').startsWith('data:') && !String(t.url || '').startsWith('devtools://')) {
         try {
           const client = new SimpleWebSocketClient(t.webSocketDebuggerUrl);
           await client.connect();
@@ -928,6 +993,7 @@ function install(customPath) {
         if (fs.existsSync(tempExtractDir)) fs.rmSync(tempExtractDir, { recursive: true, force: true });
 
         patchLanguageServerBinary(resourcesDir, false);
+        buildRemoteWebExtension();
         spawnDetachedStagedApplier(asarPath);
 
         void hotInjectViaCdp('install');
@@ -1825,6 +1891,9 @@ if (require.main === module) {
     case 'watch':
     case 'daemon':
       watch(customPath);
+      break;
+    case 'build-remote':
+      buildRemoteWebExtension();
       break;
     case 'help':
     default:

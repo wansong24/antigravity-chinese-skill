@@ -328,8 +328,51 @@
     }
   }
 
+  function hookSameOriginIframe(iframeEl) {
+    try {
+      if (!iframeEl || iframeEl.tagName !== 'IFRAME') return;
+      if (iframeEl.getAttribute && iframeEl.getAttribute('data-agy-ignore') === 'true') return;
+      var mountSubDoc = function () {
+        try {
+          var subDoc = iframeEl.contentDocument || (iframeEl.contentWindow && iframeEl.contentWindow.document);
+          if (!subDoc || !subDoc.documentElement) return;
+          translateElement(subDoc.documentElement);
+          if (!subDoc._agyIframeObserver && typeof MutationObserver !== 'undefined') {
+            var subObs = new MutationObserver(function (mutations) {
+              for (var mi = 0; mi < mutations.length; mi++) {
+                var m = mutations[mi];
+                if (m.type === 'childList') {
+                  for (var ai = 0; ai < m.addedNodes.length; ai++) {
+                    enqueueNode(m.addedNodes[ai]);
+                  }
+                } else if (m.type === 'characterData' && m.target) {
+                  m.target._agyOriginal = undefined;
+                  enqueueNode(m.target);
+                }
+              }
+              if (pendingNodes.length > 0) scheduleFlush();
+            });
+            subObs.observe(subDoc.documentElement, { childList: true, subtree: true, characterData: true });
+            subDoc._agyIframeObserver = subObs;
+          }
+        } catch (_) {}
+      };
+      if (!iframeEl._agyLoadHooked) {
+        iframeEl._agyLoadHooked = true;
+        if (iframeEl.addEventListener) {
+          iframeEl.addEventListener('load', mountSubDoc);
+        }
+      }
+      mountSubDoc();
+    } catch (_) {}
+  }
+
   function translateElement(el, scanId) {
     if (!el || el.nodeType !== 1) return;
+    if (el.tagName === 'IFRAME') {
+      hookSameOriginIframe(el);
+      return;
+    }
     if (shouldIgnoreElement(el)) return;
 
     // 同一轮扫描中，已处理的元素跳过
