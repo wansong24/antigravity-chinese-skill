@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Antigravity Chinese Localization (远程访问与网页端中文汉化)",
+  "version": "4.2.0",
+  "description": "为 Google Antigravity 远程控制网页端 (antigravity.google.com / antigravity.google) 与云端 Web 视图提供实时简体中文汉化",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://antigravity.google.com/*",
+        "https://*.antigravity.google.com/*",
+        "https://antigravity.google/*",
+        "https://*.antigravity.google/*",
+        "https://antigravity.static.usercontent.goog/*",
+        "https://*.usercontent.goog/*",
+        "https://jetski.corp.google.com/*",
+        "https://127.0.0.1/*",
+        "http://127.0.0.1/*",
+        "https://localhost/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true
+    }
+  ]
+}

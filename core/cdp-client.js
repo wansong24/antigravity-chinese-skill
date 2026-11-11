@@ -18,10 +18,28 @@ class SimpleWebSocketClient extends EventEmitter {
     this.buffer = Buffer.alloc(0);
     this.msgId = 0;
     this.pendingCallbacks = new Map();
+    // 防止在页面刷新或服务重启断开连接时因未挂载 error 监听器触发 Node.js Unhandled 'error' event 崩溃
+    this.on('error', () => {});
   }
 
-  connect() {
+  _rejectAllPending(err) {
+    for (const [, cb] of this.pendingCallbacks.entries()) {
+      if (cb.timer) clearTimeout(cb.timer);
+      try { cb.reject(err); } catch (_) {}
+    }
+    this.pendingCallbacks.clear();
+  }
+
+  connect(timeoutMs = 3000) {
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const done = (fn, val) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(connTimer);
+        fn(val);
+      };
+
       const key = crypto.randomBytes(16).toString('base64');
       const expectedAccept = crypto
         .createHash('sha1')
@@ -41,11 +59,16 @@ class SimpleWebSocketClient extends EventEmitter {
         }
       });
 
+      const connTimer = setTimeout(() => {
+        try { req.destroy(); } catch (_) {}
+        done(reject, new Error('WebSocket 连接握手超时'));
+      }, timeoutMs);
+
       req.on('upgrade', (res, socket, head) => {
         const accept = res.headers['sec-websocket-accept'];
         if (accept !== expectedAccept) {
           socket.destroy();
-          return reject(new Error(`WebSocket 握手安全校验失败: ${accept} !== ${expectedAccept}`));
+          return done(reject, new Error(`WebSocket 握手安全校验失败: ${accept} !== ${expectedAccept}`));
         }
 
         this.socket = socket;
@@ -58,14 +81,18 @@ class SimpleWebSocketClient extends EventEmitter {
         socket.on('data', chunk => this.handleData(chunk));
         socket.on('close', () => {
           this.connected = false;
+          this._rejectAllPending(new Error('WebSocket 连接已关闭'));
           this.emit('close');
         });
-        socket.on('error', err => this.emit('error', err));
+        socket.on('error', err => {
+          this._rejectAllPending(err);
+          this.emit('error', err);
+        });
 
-        resolve(this);
+        done(resolve, this);
       });
 
-      req.on('error', reject);
+      req.on('error', err => done(reject, err));
       req.end();
     });
   }
@@ -117,6 +144,7 @@ class SimpleWebSocketClient extends EventEmitter {
           if (json.id && this.pendingCallbacks.has(json.id)) {
             const cb = this.pendingCallbacks.get(json.id);
             this.pendingCallbacks.delete(json.id);
+            if (cb.timer) clearTimeout(cb.timer);
             if (json.error) {
               cb.reject(new Error(json.error.message || JSON.stringify(json.error)));
             } else {
@@ -166,19 +194,31 @@ class SimpleWebSocketClient extends EventEmitter {
       maskedPayload[i] = payload[i] ^ maskKey[i % 4];
     }
 
-    this.socket.write(Buffer.concat([header, maskedPayload]));
+    try {
+      this.socket.write(Buffer.concat([header, maskedPayload]));
+    } catch (_) {}
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, timeoutMs = 3000) {
     return new Promise((resolve, reject) => {
+      if (!this.connected || !this.socket) {
+        return reject(new Error('WebSocket 未连接'));
+      }
       const id = ++this.msgId;
-      this.pendingCallbacks.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        if (this.pendingCallbacks.has(id)) {
+          this.pendingCallbacks.delete(id);
+          reject(new Error(`CDP 请求超时: ${method}`));
+        }
+      }, timeoutMs);
+      this.pendingCallbacks.set(id, { resolve, reject, timer });
       const msg = JSON.stringify({ id, method, params });
       this.sendFrame(0x1, Buffer.from(msg, 'utf8'));
     });
   }
 
   close() {
+    this._rejectAllPending(new Error('WebSocket 主动关闭'));
     if (this.socket) {
       try {
         // 发送带掩码的 Close 帧
