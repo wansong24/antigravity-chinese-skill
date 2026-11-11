@@ -34,8 +34,8 @@
     "1 agent running": "1 个正在运行的智能体",
     "1 Comment": "1 条评论",
     "2. Make sure that your selected workspace is synced to head. This ensures that the installed skills are available in your workspace.": "2. 请确保您所选的工作区已同步至最新提交（Head）。这可确保安装的技能在您的工作区中可用。",
-    "A copy of the workspace snapshot recorded at this step.": "在此步骤记录的工作区快照副本。",
-    "A full copy of this workspace, uncommitted changes included.": "此工作区的完整副本，包含未提交的更改。",
+    "A copy of the workspace snapshot recorded at this step.": "使用此步骤记录的工作区快照创建副本。",
+    "A full copy of this workspace, uncommitted changes included.": "完整复制此工作区（包括未提交的更改）。",
     "A group with this name already exists.": "已存在同名分组。",
     "A new version is available.": "发现新版本可用。",
     "A nickname for identifying this application in the companion website. Changing this will restart the connection.": "用于在配套网站中标识此应用程序的昵称。更改此项将重启连接。",
@@ -461,8 +461,8 @@
     "Continue Response": "继续生成回复",
     "Continue with Advanced SSO": "通过高级 SSO 继续",
     "Continue with different account": "使用其他账号继续",
-    "Continue with Google": "通过 Google 继续",
-    "Continue with Google Cloud": "通过 Google Cloud 继续",
+    "Continue with Google": "使用 Google 账号继续",
+    "Continue with Google Cloud": "使用 Google Cloud 账号继续",
     "Continuous Execution": "连续执行模式",
     "Continuous Mode": "持续模式",
     "Contrast": "对比度",
@@ -503,7 +503,7 @@
     "Copy Conversation Markdown": "复制会话 Markdown",
     "Copy debug info": "复制调试信息",
     "Copy error": "复制错误信息",
-    "Copy error messages": "复制错误消息",
+    "Copy error messages": "复制错误信息",
     "Copy error to clipboard": "复制错误信息到剪贴板",
     "Copy File Name": "复制文件名",
     "Copy File Path": "复制文件路径",
@@ -537,7 +537,7 @@
     "Correctness": "准确性",
     "Could not create project": "无法创建项目",
     "Create": "创建",
-    "Create a Plugin with the Agent": "与智能体一起创建插件",
+    "Create a Plugin with the Agent": "使用智能体创建插件",
     "Create Automation": "创建自动化",
     "Create conversation": "新建会话",
     "Create Conversation": "新建会话",
@@ -560,7 +560,7 @@
     "Creating environment...": "正在创建环境...",
     "Creating Fork...": "正在创建分支派生...",
     "Creating terminal...": "正在创建终端...",
-    "Creating the forked conversation...": "正在创建分叉会话...",
+    "Creating the forked conversation...": "正在创建分支会话...",
     "Ctrl+Enter Queues after the turn": "Ctrl+Enter 轮次结束后进入排队",
     "Ctrl+Enter Sends immediately": "Ctrl+Enter 立即发送",
     "Curated collection of agent skills for science tasks.": "精选用于科学计算与科研任务的智能体技能集合。",
@@ -860,7 +860,7 @@
     "Fold code block": "折叠代码块",
     "Folder": "文件夹",
     "Folder doesn't exist": "文件夹不存在",
-    "Folders": "文件夹列表",
+    "Folders": "文件夹",
     "Follow-up Messages": "追问消息",
     "for conversations outside of projects.": "用于项目外会话。",
     "For help, visit": "如需帮助，请访问",
@@ -1032,7 +1032,7 @@
     "Keep Computer Awake": "保持电脑处于唤醒状态",
     "Keep In Menu Bar": "保持在菜单栏/托盘",
     "Keep your coding agent up to date with the latest web best practices.": "让您的编码智能体紧跟最新的 Web 最佳实践。",
-    "Keeps working in this workspace. Nothing is copied.": "继续在当前工作区中工作。不复制任何内容。",
+    "Keeps working in this workspace. Nothing is copied.": "继续在此工作区中工作，不复制任何文件。",
     "Keyboard shortcuts for quick navigation and control": "用于快速导航与控制的键盘快捷键",
     "Keyboard shortcuts for quick navigation and control.": "用于快速导航与控制的键盘快捷键。",
     "Kick off work on your computer and continue working with your agents from your phone or another device. Turn on Remote Control in app settings.": "在您的计算机上开启工作，并通过手机或其他设备继续与您的智能体协同。可在应用设置中开启远程控制。",
@@ -1240,10 +1240,10 @@
     "No results found.": "未找到结果。",
     "No skills used": "未使用任何技能",
     "No skills used.": "未使用任何技能。",
-    "No subagents": "无子智能体",
+    "No subagents": "暂无子智能体",
     "No Subtitle": "无副标题",
     "No updates available": "暂无可用更新",
-    "No uploads": "无上传内容",
+    "No uploads": "暂无上传文件",
     "No workspaces open.": "当前未打开任何工作区。",
     "Non-technical": "非技术模式",
     "None": "无",
@@ -1312,7 +1312,7 @@
     "Organization ID": "组织 ID",
     "Other Conversations": "其他会话",
     "Other reason": "其他原因",
-    "Other sign-in options": "其他登录选项",
+    "Other sign-in options": "其他登录方式",
     "Output": "输出",
     "outside of project": "项目外",
     "Outside of Project": "项目外",
@@ -1566,7 +1566,7 @@
     "Revert file changes": "还原文件更改",
     "Review Changes": "审查更改",
     "Revoke": "撤销",
-    "Rewinds the conversation only. Files in this workspace stay as they are now.": "仅回退会话。此工作区中的文件将保持当前状态。",
+    "Rewinds the conversation only. Files in this workspace stay as they are now.": "仅回退会话记录，此工作区中的文件保持现状。",
     "Rule Files": "规则文件",
     "Rule Priority": "规则优先级",
     "Rules": "规则库",
@@ -1707,7 +1707,7 @@
     "Setup may take over 5 minutes. Please keep this screen open during setup.": "设置可能需要 5 分钟以上，请在设置期间保持此屏幕打开。",
     "Setup Script": "项目初始化脚本",
     "Share": "分享",
-    "Shares this repository, with a working copy of its own. Uncommitted changes stay behind.": "共享此代码仓库，并拥有自己的工作副本。未提交的更改将保留在原处。",
+    "Shares this repository, with a working copy of its own. Uncommitted changes stay behind.": "共享此代码仓库并创建独立的工作副本，未提交的更改将保留在原处。",
     "Sharing this conversation will export its history. Anyone with the link will be able to load and view it.": "分享此会话将导出其历史记录。任何拥有链接的人都可以加载和查看。",
     "Shift+Enter Queues after the turn": "Shift+Enter 轮次结束后进入排队",
     "Shift+Enter Sends immediately": "Shift+Enter 立即发送",
@@ -1900,7 +1900,7 @@
     "The current trigger rate is too high.": "当前触发频率过高。",
     "the customization budget is available": "自定义扩展预算可用",
     "the customization budget is available.": "自定义扩展预算可用。",
-    "The full developer experience.": "完整开发者体验。",
+    "The full developer experience.": "完整的开发者体验界面。",
     "The Google3 project is deprecated": "Google3 项目已弃用",
     "The server returned no conversation to fork into": "服务器未返回可供分支的对话",
     "The server returned no conversation to fork into.": "服务器未返回可供分支的对话。",
@@ -1915,7 +1915,7 @@
     "This cannot be undone.": "此操作无法撤销。",
     "This chat is archived.": "此会话已归档。",
     "This conversation grew too large, so the history before this point may be missing or incomplete.": "此会话体积过大，因此该节点之前的历史记录可能缺失或不完整。",
-    "This Google Cloud project is not supported. Input a different project, or sign in with another account.": "不支持此 Google Cloud 项目。请输入其他项目，或使用其他账号登录。",
+    "This Google Cloud project is not supported. Input a different project, or sign in with another account.": "不支持此 Google Cloud 项目。请输入其他项目 ID，或使用其他账号登录。",
     "This is very dangerous and we do not recommend doing this": "这非常危险，我们不建议这样做",
     "This is very dangerous and we do not recommend doing this.": "这非常危险，我们不建议这样做。",
     "This plugin provides a specialized suite of skills for data engineers and database practitioners working on Google Cloud. It acts as an expert assistant, allowing you to easily interact with your database, analyze your data, and optimize your database workload.": "此插件为在 Google Cloud 上工作的数据工程师和数据库从业者提供专业技能套件。它充当专家助手，让您轻松与数据库交互、分析数据并优化数据库工作负载。",
@@ -2026,7 +2026,7 @@
     "Updated sidebar grouping": "已更新侧边栏分组",
     "Upgrade": "立即升级",
     "Upload to Agent": "上传至智能体",
-    "Uploads": "上传内容",
+    "Uploads": "上传文件",
     "Use advanced SSO config": "使用高级 SSO 配置",
     "Use business account": "使用企业账号",
     "Use Existing": "使用现有项",
@@ -2229,7 +2229,7 @@
     "Mark All as Read": "全部标为已读",
     "Couldn't mark conversations as read": "无法将会话标为已读",
     "Cancel Sending Message": "取消发送消息",
-    "Fork conversation in this folder": "在此文件夹中分叉会话",
+    "Fork conversation in this folder": "在此文件夹中派生分支会话",
     "Keeps working in this folder. Nothing is copied.": "继续在此文件夹中工作，不复制任何文件。",
     "All Workspaces": "所有工作区",
     "Show temporary and forked workspaces": "显示临时与分叉工作区",
@@ -2241,13 +2241,13 @@
     "Get Anything Done with ": "借助以下工具搞定一切：",
     "Get Anything Done with Antigravity": "借助 Antigravity 搞定一切",
     "Build new features": "构建新功能",
-    "Hand off a feature and come back to working code.": "交付功能需求，回来即可收获可用代码。",
+    "Hand off a feature and come back to working code.": "交付功能需求，直接获取可运行的代码。",
     "Debug and fix": "调试与修复",
-    "Automatically reproduce bugs, trace causes, test fixes.": "自动复现 Bug、追踪根因并测试修复方案。",
-    "Research anything": "探索任何问题",
-    "Ask about your code or any topic, get clear answers.": "询问代码或任何主题，获取清晰解答。",
+    "Automatically reproduce bugs, trace causes, test fixes.": "自动复现问题、追踪根因并测试修复方案。",
+    "Research anything": "全能调研助手",
+    "Ask about your code or any topic, get clear answers.": "询问关于代码或任何主题的问题，获取清晰解答。",
     "Write and edit docs": "撰写与编辑文档",
-    "Draft documents, emails, and notes that sound like you.": "起草贴合您个人风格的文档、邮件与笔记。",
+    "Draft documents, emails, and notes that sound like you.": "以契合您风格的口吻起草文档、邮件与笔记。",
     "Last Used": "上次使用",
     "Uploading to Google Drive…": "正在上传至 Google Drive…",
     "Uploaded to Google Drive": "已上传至 Google Drive",
@@ -3165,11 +3165,11 @@
     "See more in Bundles": "在组合包中查看更多",
     "See more in Plugins": "在插件中查看更多",
     "See less in Plugins": "在插件中收起",
-    "What's in this bundle": "此组合包包含的内容",
+    "What's in this bundle": "此套件包含的内容",
     "Bundles": "组合包",
     "Loading bundle...": "正在加载组合包...",
     "Each plugin can be managed on its own.": "每个插件均可独立管理。",
-    "This bundle has no plugins yet.": "此组合包暂未包含任何插件。",
+    "This bundle has no plugins yet.": "此套件暂无插件。",
     "Disabled. Open the plugin page to finish setup.": "已禁用。请打开插件页面以完成配置。",
     "Services this plugin connects to on your behalf. Credentials stay on this machine and are only sent to the domains listed.": "此插件代表您连接的外部服务。凭据仅保存在本机，且仅发送至下方列出的域名。",
     "Search all skills on Agent Market…": "在智能体市场中搜索所有技能…",
@@ -3474,7 +3474,7 @@
     "Open files in the background if the agent creates or edits them": "当智能体创建或编辑文件时在后台自动打开这些文件",
     "Open the agent panel on window reload": "重新加载窗口时自动打开智能体面板",
     "Custom Context Menus": "自定义右键菜单",
-    "Replace the default browser right-click menu with quick actions.": "使用快捷操作菜单替换默认的浏览器右键菜单。",
+    "Replace the default browser right-click menu with quick actions.": "使用快捷操作替换默认的浏览器右键菜单。",
     "Configure the default width of markdown artifacts.": "配置 Markdown 产物文档的默认显示宽度。",
     "Fill": "铺满",
     "Show suggestions when typing in the editor": "在编辑器中输入代码时显示补全建议",
@@ -3599,7 +3599,7 @@
     "Reload this window.": "重新加载此窗口。",
     "Business Account Sign In": "企业账号登录",
     "Use Advanced SSO Config": "使用高级 SSO 配置",
-    "Use this if your admin gave you a WIF config. Paste it below to sign in.": "如果您的管理员提供了工作负载身份联合 (WIF) 配置，请将其粘贴至下方以登录。",
+    "Use this if your admin gave you a WIF config. Paste it below to sign in.": "如果您的管理员提供了 WIF 配置，请将其粘贴到下方以登录。",
     "Provide Google Cloud Project": "提供 Google Cloud 项目",
     "Your Antigravity use will be associated with provided project.": "您的 Antigravity 使用情况将与所提供的项目关联。",
     "Choose Region": "选择区域",
@@ -3614,7 +3614,623 @@
     "Pay As You Go": "按量计费 (Pay As You Go)",
     "Managed by Enterprise Gateway": "由企业网关 (Enterprise Gateway) 托管",
     "United States": "美国",
-    "Europe": "欧洲"
+    "Europe": "欧洲",
+    "Chat": "对话",
+    "Chat Width": "对话宽度",
+    "Conversation Steps": "会话步骤详情",
+    "Choose how much detail is shown during a conversation.": "选择会话过程中展示的步骤详细程度。",
+    "Verbose": "详细",
+    "Accessibility": "无障碍",
+    "Screen Reader Mode": "屏幕阅读器模式",
+    "Optimize the interface and terminal output for screen readers.": "针对屏幕阅读器优化界面与终端输出。",
+    "Terminal Placement": "终端位置",
+    "Choose where terminal sessions appear.": "选择终端会话的显示位置。",
+    "Bottom Panel": "底部面板",
+    "Side Panel": "侧边面板",
+    "Context and Quota Indicator": "上下文与配额指示器",
+    "Show how full the context window is next to the send button. Click it for a breakdown and to see your model quota.": "在发送按钮旁显示上下文窗口占用比例。点击可查看明细及模型配额。",
+    "Legacy Light": "经典浅色",
+    "Legacy Dark": "经典深色",
+    "System UI": "系统默认字体",
+    "Font": "字体",
+    "Give Feedback": "提供反馈",
+    "Change...": "更改...",
+    "Change": "更改",
+    "projects": "个项目",
+    "Chat Input": "对话输入",
+    "Enter to Send": "按 Enter 发送",
+    "Send messages with the keyboard's Enter key instead of starting a new line.": "使用键盘 Enter 键直接发送消息，而非换行。",
+    "New Conversation Button": "新建会话按钮",
+    "Which workspace the New Conversation button and keyboard shortcut start you in.": "设置点击“新建会话”按钮或使用快捷键时默认进入的工作区。",
+    "Last Workspace": "上次使用的工作区",
+    "Create a new workspace from your first message.": "根据您的第一条消息自动创建新工作区。",
+    "Start without a workspace, for general questions.": "不绑定工作区直接开始，适合日常通用提问。",
+    "Reuse your last workspace.": "继续使用您上一次打开的工作区。",
+    "Project 4K": "精简办公模式",
+    "Choose between the Default and Project 4K experience.": "在默认完整体验与精简模式 (Project 4K) 之间切换。",
+    "Project 4K interface without developer tooling.": "隐去开发者工具的精简办公界面。",
+    "Updater": "更新管理",
+    "Quota": "配额管理",
+    "Use Antigravity through your Gemini subscription.": "通过您的 Gemini 订阅使用 Antigravity。",
+    "Pay only for the tokens you use, billed through Gemini platform.": "按实际使用的 Token 计费，通过 Gemini 平台结算。",
+    "Choose a Subscription": "选择订阅方案",
+    "Confirm Selection": "确认选择",
+    "Auto-assignment not configured": "未配置自动分配",
+    "No license available for this project and location": "当前项目和区域暂无可用许可证",
+    "Project Required": "需要绑定项目",
+    "License Required": "需要许可证",
+    "A Google Cloud project is required to use Antigravity.": "使用 Antigravity 需要关联 Google Cloud 项目。",
+    "A license or project selection is required to use Antigravity.": "使用 Antigravity 需要选择许可证或项目。",
+    "Manage License": "管理许可证",
+    "Enterprise Gateway": "企业网关",
+    "Remote Agents Data": "远程智能体数据",
+    "Delete All Remote Agents Data": "删除所有远程智能体数据",
+    "Delete All Remote Agents Data?": "确定删除所有远程智能体数据？",
+    "Delete All Data": "删除所有数据",
+    "Couldn't delete your data. Try again.": "无法删除您的数据，请重试。",
+    "Terminal commands automatically proceed inside the sandbox. A command that needs to leave the sandbox proceeds only if an agent judges it reversible, and otherwise requests review.": "终端命令将在沙盒内自动执行。需要脱离沙盒的命令仅在智能体判定可逆时自动执行，否则会请求人工审查。",
+    "Setup script ran successfully.": "初始化脚本运行成功。",
+    "Setup script failed.": "初始化脚本运行失败。",
+    "Validation timed out.": "验证超时。",
+    "This Computer": "当前电脑",
+    "This computer": "当前电脑",
+    "Remote": "远程环境",
+    "Cloud Permissions": "云端权限",
+    "Remote Permissions": "远程权限",
+    "Configure what the agent can do in local and remote conversations.": "配置智能体在本地与远程会话中的操作权限。",
+    "Controls permissions for remote conversations.": "控制远程会话的智能体操作权限。",
+    "Modify permissions for file and terminal tools.": "修改文件读写与终端工具的执行权限。",
+    "Only this conversation uses this preset.": "仅当前会话使用此权限预设。",
+    "This Conversation": "当前会话",
+    "Your Remote setting": "您的远程默认设置",
+    "Your This Computer setting": "您的本机默认设置",
+    "Unsandboxed commands": "非沙盒命令",
+    "Read files": "读取文件",
+    "Write files": "写入文件",
+    "Browser actions": "浏览器操作",
+    "MCP tools": "MCP 工具",
+    "Admin escalation": "管理员提权",
+    "Other": "其他",
+    "Open Links In": "链接默认打开方式",
+    "Choose where links open by default when clicked.": "选择点击链接时的默认打开位置。",
+    "Built-in Browser": "内置浏览器",
+    "External Browser": "外部浏览器",
+    "Side Panel Preview": "侧边栏预览",
+    "Configure link opening and built-in browser preferences.": "配置链接打开方式与内置浏览器偏好设置。",
+    "Download Location": "下载保存位置",
+    "Folder where files downloaded in the built-in browser are saved.": "内置浏览器下载文件的本地保存文件夹。",
+    "Browsing History": "浏览历史记录",
+    "Clear visited URLs and autocomplete suggestions from side panel preview.": "清除侧边栏预览中访问过的网址与自动补全建议。",
+    "Clear visited URLs and autocomplete suggestions from the built-in browser.": "清除内置浏览器中访问过的网址与自动补全建议。",
+    "Browser Subagent": "浏览器子智能体",
+    "Configure the browser subagent. It requires": "配置浏览器子智能体。该功能需要安装",
+    "to be installed. The browser subagent can be invoked by typing /browser in the conversation input box.": "。安装后可在对话框中输入 /browser 唤起浏览器子智能体。",
+    "Browser Use": "浏览器控制",
+    "Browser steps": "浏览器步骤",
+    "Play a sound when your action is needed or the agent finishes.": "当需要您操作或智能体完成任务时播放提示音。",
+    "Show system notifications when your action is needed or the agent finishes.": "当需要您操作或智能体完成任务时显示系统通知。",
+    "Voice": "语音",
+    "Voice Mode": "语音模式",
+    "Voice mode": "语音模式",
+    "Voices": "音色选择",
+    "The voice used in Voice mode. Powered by Gemini Live.": "语音模式下使用的音色，由 Gemini Live 提供支持。",
+    "The voice Jetski speaks with.": "智能体播报时使用的音色。",
+    "Microphone": "麦克风",
+    "Input device for voice mode and dictation.": "用于语音对话和听写输入的麦克风设备。",
+    "System default": "系统默认",
+    "Using system default microphone": "正在使用系统默认麦克风",
+    "Save audio recordings": "保存录音文件",
+    "Only stored on your machine.": "仅保存在您的本地设备上。",
+    "Recordings": "录音记录",
+    "No recordings": "暂无录音记录",
+    "Delete all": "全部删除",
+    "Delete all recordings?": "确定删除所有录音记录？",
+    "How loud Antigravity's voice is.": "调节 Antigravity 语音播报的音量大小。",
+    "Voice volume": "语音音量",
+    "Voice speed": "语速",
+    "Voice Speed": "语速",
+    "Previous voice": "上一个音色",
+    "Next voice": "下一个音色",
+    "Clear and friendly": "清晰友好",
+    "Confident and clear": "自信清晰",
+    "Warm and engaging": "温暖自然",
+    "Warm and approachable": "亲切温和",
+    "Deep and velvety": "低沉醇厚",
+    "Light and precise": "轻快准确",
+    "Start Live Chat": "开启实时语音对话",
+    "Start Voice mode": "开启语音模式",
+    "End Live chat": "结束实时语音对话",
+    "End Voice mode": "结束语音模式",
+    "Live chat": "实时语音",
+    "Live chat in progress": "实时语音进行中",
+    "Voice mode in progress": "语音模式进行中",
+    "Unmute mic": "取消麦克风静音",
+    "Mute mic": "静音麦克风",
+    "No mic audio detected": "未检测到麦克风声音",
+    "Dismiss microphone warning": "忽略麦克风警告",
+    "Microphone blocked. Allow mic access.": "麦克风权限被阻止，请允许访问麦克风。",
+    "Live transcript": "实时字幕",
+    "Voice transcript": "语音转写文本",
+    "Copied transcript": "已复制转写文本",
+    "Copy transcript": "复制转写文本",
+    "Nothing said yet": "暂无语音内容",
+    "Listening. Ask anything.": "正在倾听，请随时提问。",
+    "Mute Voice Mic": "静音/取消静音麦克风",
+    "Mute Voice Speaker": "静音/取消静音扬声器",
+    "Toggle Side Panel": "切换侧边面板",
+    "Toggle Maximize Side Panel": "最大化/还原侧边面板",
+    "New Tab": "新建标签页",
+    "Reopen Closed Tab": "重新打开关闭的标签页",
+    "Move Conversation Up": "向上移动会话",
+    "Move Conversation Down": "向下移动会话",
+    "Previous Side Panel Tab": "上一个侧边栏标签页",
+    "Next Side Panel Tab": "下一个侧边栏标签页",
+    "Cancel Generation": "取消生成",
+    "Open Conversation in New Tab": "在新标签页中打开会话",
+    "Toggle Terminal Panel": "切换终端面板",
+    "Stop Editing": "停止编辑",
+    "Edit Shortcut": "编辑快捷键",
+    "Add Shortcut": "添加快捷键",
+    "Remove Shortcut": "移除快捷键",
+    "Reset to Default": "恢复默认",
+    "Reset All to Defaults": "全部恢复默认",
+    "Reset all shortcuts to defaults": "将所有快捷键恢复为默认设置",
+    "Search shortcuts...": "搜索快捷键...",
+    "Search shortcuts": "搜索快捷键",
+    "Press keys...": "请按下快捷键...",
+    "No keyboard shortcuts found matching your filter.": "未找到匹配的快捷键。",
+    "This shortcut is reserved by browser tabs and may not trigger in Web mode. It works in the Desktop Hub or installed PWA.": "此快捷键被浏览器标签页占用，在网页模式下可能无法触发，但在桌面客户端或安装的 PWA 应用中可正常使用。",
+    "Every weekday": "每个工作日",
+    "Custom schedule": "自定义计划",
+    "How often": "执行频率",
+    "Day of the week": "星期几",
+    "Number of hours": "小时间隔",
+    "Repeat unit": "重复单位",
+    "Day of the month": "每月几号",
+    "Days": "天",
+    "Reads": "读取源",
+    "Change schedule": "修改执行计划",
+    "Change model": "更换模型",
+    "No upcoming run.": "暂无即将执行的计划。",
+    "Paused. Resume it to schedule the next run.": "已暂停。恢复后将安排下一次运行。",
+    "Edit schedule and model": "编辑计划与模型",
+    "What should the agent do on each run?": "每次运行时智能体需要执行什么任务？",
+    "What should the agent do on each run? For example: summarize new bugs assigned to me and anything that changed overnight.": "每次运行时智能体应执行的任务。例如：汇总每天新分配给我的问题及隔夜变更。",
+    "What should it do?": "需要执行什么任务？",
+    "For example: every morning, summarize new bugs assigned to me and anything that changed overnight.": "例如：每天早上汇总新分配给我的问题以及隔夜发生的变更。",
+    "For example: Morning bug summary": "例如：每日早间问题汇总",
+    "Prompt to run when triggered...": "触发时执行的提示词指令...",
+    "On a schedule": "按定时计划",
+    "When something happens": "当特定事件发生时",
+    "When it runs": "运行时间",
+    "Where it runs": "运行位置",
+    "Where should it run?": "在哪里运行？",
+    "When should it run?": "在什么时候运行？",
+    "Schedule type": "计划类型",
+    "Runs a command": "运行命令",
+    "Always on": "始终开启",
+    "Paused": "已暂停",
+    "Remove trigger": "移除触发器",
+    "Add schedule": "添加定时计划",
+    "Add trigger": "添加触发器",
+    "Add filter": "添加筛选条件",
+    "Only for": "仅针对",
+    "One or more, comma-separated": "一个或多个，用逗号分隔",
+    "Creates a local automation that runs on this computer": "创建在此电脑上运行的本地自动化任务",
+    "Run a prompt on a schedule, like a morning summary of yesterday's changes. Runs show up here.": "按计划定时运行提示词（例如每天早上汇总昨日变更），运行记录将显示在这里。",
+    "All runs": "全部运行记录",
+    "No runs yet": "暂无运行记录",
+    "No events recorded.": "暂无事件记录。",
+    "No instructions.": "暂无指令。",
+    "Trigger": "触发方式",
+    "Execution Identity": "执行身份",
+    "Events": "事件",
+    "Instructions": "任务指令",
+    "Machine": "运行设备",
+    "Runs as": "运行身份",
+    "Runs on this computer": "在此电脑上运行",
+    "Runs remotely": "远程运行",
+    "Runs in a cloud environment": "在云端环境中运行",
+    "Only Automations": "仅看自动化任务",
+    "Only Scheduled": "仅看定时任务",
+    "Only Archived": "仅看已归档",
+    "Sort and filter conversations": "排序与筛选会话",
+    "Currently installed": "当前已安装",
+    "No plugin loads from this folder.": "此文件夹下未加载任何插件。",
+    "Replace with": "替换为",
+    "Replace": "替换",
+    "Sign in to finish setting up this plugin.": "请登录以完成此插件的配置。",
+    "App update required": "需要更新客户端应用",
+    "Plugin update required": "需要更新插件",
+    "Website": "官方网站",
+    "Repository": "代码仓库",
+    "Context Providers": "上下文提供程序",
+    "Themes": "主题",
+    "Unnamed Theme": "未命名主题",
+    "Go to Accounts": "前往账号管理",
+    "Enter the configuration values this MCP server needs. Saving restarts the server with them.": "输入此 MCP 服务器所需的配置参数。保存后将使用新配置重启服务。",
+    "Explore other marketplace customizations": "探索更多插件市场扩展",
+    "Disabled. Open Details to finish setup or enable.": "已禁用。打开“详情”以完成配置或启用。",
+    "Enable this plugin to manage its accounts.": "启用此插件以管理其关联账号。",
+    "No sign-in needed": "无需登录",
+    "Enable the plugin to sign in.": "启用此插件后即可登录。",
+    "Paste the code shown after you sign in.": "粘贴登录后显示的授权码。",
+    "Restart sign-in": "重新登录",
+    "Connections": "已连接服务",
+    "Not connected": "未连接",
+    "Signed in": "已登录",
+    "Sign in needed": "需要登录",
+    "Sign in required": "需要登录",
+    "Needs sign-in": "需要登录",
+    "Needs reconnect": "需要重新连接",
+    "Reconnect": "重新连接",
+    "Finish signing in in your browser": "请在浏览器中完成登录",
+    "Make default": "设为默认",
+    "Add label": "添加标签",
+    "Add account": "添加账号",
+    "Paste new key": "粘贴新密钥",
+    "Paste key": "粘贴密钥",
+    "Apps connected to your account": "已关联至您账号的应用",
+    "Sign in to an app once and your agent can use it on any device. Open an app to see the account it uses or to disconnect it.": "只需登录一次应用，您的智能体即可在任何设备上调用它。点击应用可查看当前关联账号或断开连接。",
+    "Connect an account so the agent can use this app.": "关联账号以便智能体使用此应用。",
+    "Connect an account so the agent can run automations.": "关联账号以便智能体运行自动化任务。",
+    "No apps available.": "暂无可用应用。",
+    "No apps connected yet. Connect one from Marketplace.": "暂未连接任何应用，可前往插件市场添加。",
+    "Apps": "应用",
+    "Loading apps...": "正在加载应用...",
+    "Connectors": "连接器",
+    "Search connectors": "搜索连接器",
+    "Browse Connectors": "浏览连接器",
+    "No connectors available in this project": "当前项目暂无可用连接器",
+    "More Plugins": "更多插件",
+    "Featured": "精选推荐",
+    "Side Question": "旁路提问",
+    "Ask a side question without interrupting the main conversation": "在不打断主会话的情况下发起旁路提问",
+    "Stop Side Question": "停止旁路提问",
+    "Stop side question": "停止旁路提问",
+    "Promote to Conversation": "升级为主会话",
+    "Promote to conversation": "升级为主会话",
+    "Cannot promote while side question is running": "旁路提问运行中，无法升级为主会话",
+    "Enter a side question after /btw": "在 /btw 后输入旁路提问内容",
+    "Fork in Current Workspace": "在当前工作区中派生分支",
+    "Fork in Shared Workspace": "在共享工作区中派生分支",
+    "Fork in New Workspace": "在新工作区中派生分支",
+    "Replace with New": "替换为新会话",
+    "Open in Side Panel": "在侧边面板中打开",
+    "Open in side pane": "在侧边面板中打开",
+    "Open in New Window": "在新窗口中打开",
+    "Open in External Browser": "在外部浏览器中打开",
+    "Open Link in New Tab": "在新标签页中打开链接",
+    "Open Link in External Browser": "在外部浏览器中打开链接",
+    "Copy Link Address": "复制链接地址",
+    "Open Image in New Tab": "在新标签页中打开图片",
+    "Copy Image Address": "复制图片地址",
+    "Copy Message": "复制消息",
+    "Undo to Here": "撤销至此步",
+    "Expand message": "展开消息",
+    "Expand questionnaire": "展开问卷",
+    "Collapse questionnaire": "收起问卷",
+    "Expand Questionnaire": "展开问卷",
+    "Collapse Questionnaire": "收起问卷",
+    "Cancel Questionnaire and Stop the Agent": "取消问卷并停止智能体",
+    "Hide earlier steps": "隐藏早期步骤",
+    "Show 1 earlier step": "显示前 1 个步骤",
+    "Proceed with implementation plan": "按实施计划继续执行",
+    "Collapse command": "收起命令",
+    "Show full command": "显示完整命令",
+    "Waiting for your approval": "等待您的批准",
+    "Yes, allow this time": "是，仅本次允许",
+    "Yes, save rule in this conversation": "是，在当前会话中保存此规则",
+    "Yes, and always allow in this conversation": "是，在当前会话中始终允许",
+    "Work in a New Worktree": "在新的 Git 工作树 (Worktree) 中工作",
+    "Keeps your checkout untouched": "保持当前本地检出分支不受影响",
+    "Worktree Branches": "工作树分支",
+    "Local Checkout": "本地检出",
+    "Switch branch": "切换分支",
+    "Base branch for new worktree": "新工作树的基准分支",
+    "Worktree branch": "工作树分支",
+    "Remote branch": "远程分支",
+    "View Branches": "查看分支",
+    "Search branches": "搜索分支",
+    "No branches found": "未找到分支",
+    "No commits yet": "暂无提交记录",
+    "Generating commit message...": "正在生成提交说明...",
+    "Commit message cannot be empty": "提交说明不能为空",
+    "Close Other Tabs": "关闭其他标签页",
+    "Close Tabs to the Left": "关闭左侧标签页",
+    "Close Tabs to the Right": "关闭右侧标签页",
+    "Close Panel": "关闭面板",
+    "Full View": "全屏视图",
+    "Downloads": "下载内容",
+    "No recent downloads": "暂无最近下载",
+    "Show in folder": "在文件夹中显示",
+    "Cancel download": "取消下载",
+    "Remove from list": "从列表中移除",
+    "Add screenshot to conversation": "添加截图到当前会话",
+    "Capture Screenshot": "截取屏幕截图",
+    "Capture Console Logs": "捕获控制台日志",
+    "Connect GitHub": "连接 GitHub",
+    "Pull Requests": "拉取请求 (PR)",
+    "Instructions and tools": "指令与工具",
+    "Compacted since the last response; counts update after the next one.": "自上次回复后已压缩上下文；统计数据将在下次回复后更新。",
+    "When it fills up, older turns are summarized to make room.": "当上下文窗口占满时，早期对话轮次将被自动总结以腾出空间。",
+    "What can we get done today?": "今天我们准备完成什么任务？",
+    "Announcements and tips": "最新动态与使用技巧",
+    "New models have been enabled for you!": "已为您启用新模型！",
+    "Join the Google Chat space": "加入 Google Chat 交流空间",
+    "Ask questions, report issues, and discuss features": "提问交流、反馈问题与讨论新功能",
+    "Screenshot must be under 10 MB": "截图大小必须小于 10 MB",
+    "Attaching logs requires an email address": "附加诊断日志需要填写邮箱地址",
+    "Describe the feature you would like to see...": "请描述您希望新增的功能...",
+    "Describe your auth or billing issue...": "请描述您遇到的认证或计费问题...",
+    "Enter your feedback here...": "请在此输入您的反馈意见...",
+    "Thank you! Your feedback has been submitted successfully.": "非常感谢！您的反馈已成功提交。",
+    "Running (Dev only)": "运行中进程 (开发者)",
+    "Background tasks and terminals agents left running, across all conversations.": "所有会话中智能体留在后台运行的任务与终端进程。",
+    "Nothing is running right now": "当前没有正在运行的后台进程",
+    "Running processes are killed. This cannot be undone.": "运行中的进程将被终止，此操作不可撤销。",
+    "Still running": "仍在运行",
+    "Console Telemetry": "控制台遥测日志",
+    "Print telemetry to the console": "将遥测事件输出至控制台",
+    "Custom Flags": "自定义实验标志 (Flags)",
+    "Reset overrides": "重置所有覆盖项",
+    "Search flags": "搜索实验标志",
+    "Custom flag to turn on": "输入要开启的实验标志",
+    "Turn on a flag you don't have": "手动开启未列出的实验标志",
+    "This client was started with no custom flags.": "当前客户端启动时未附加任何自定义标志。",
+    "No custom flag matches your search.": "未找到匹配的自定义标志。",
+    "Feature Environment Override": "功能环境模拟覆盖",
+    "When enabled, the values below replace the auto-detected OS, host, and user type used for feature gating.": "启用后，下方设置将替换自动检测的操作系统、宿主环境和用户类型。",
+    "Operating System": "操作系统",
+    "Simulate running on a different OS.": "模拟在不同操作系统上运行。",
+    "Host Environment": "宿主环境",
+    "Simulate a different host (Electron, desktop or mobile Web, Extension, remote control, or installed PWA).": "模拟不同的宿主环境（Electron、桌面/移动网页、扩展、远程控制或 PWA）。",
+    "User Type": "用户类型",
+    "Simulate a different user cohort (Google, External, Enterprise).": "模拟不同的用户群体（Google 内部、外部用户、企业用户）。",
+    "Open In": "打开方式",
+    "Members": "成员",
+    "From": "来自",
+    "Sent": "已发送",
+    "Owner": "所有者",
+    "Author": "作者",
+    "You should not enter any sensitive information on this site (for example, passwords or credit cards), because it could be stolen by attackers.": "请勿在此网站输入任何敏感信息（例如密码或信用卡号），否则可能会被攻击者窃取。",
+    "Attackers might be able to see the images you're looking at on this site and trick you by modifying them.": "攻击者可能会看到您在此网站上查看的图片，并通过篡改图片来欺骗您。",
+    "Your information (for example, passwords or credit card numbers) is private when it is sent to this site.": "您的信息（例如密码或信用卡号）在发送到此网站时是私密安全的。",
+    "Enter a URL (e.g. http://localhost:8080)": "输入网址（例如 http://localhost:8080）",
+    "Remove from history (Shift+Delete)": "从历史记录中移除 (Shift+Delete)",
+    "Click to view or edit comment": "点击查看或编辑评论",
+    "View site information": "查看网站信息",
+    "This page isn’t working": "此页面无法正常工作",
+    "This page isn't working": "此页面无法正常工作",
+    "This site can’t be reached": "无法访问此网站",
+    "This site can't be reached": "无法访问此网站",
+    "Default Cog Repository": "默认 Cog 仓库",
+    "Git-on-Borg repository used when creating a new Cog workspace from your initial prompt (e.g., chromium/src or android/platform/superproject).": "根据初始提示词创建新 Cog 工作区时使用的 Git-on-Borg 仓库（例如 chromium/src 或 android/platform/superproject）。",
+    "Default Cog Branch / Ref": "默认 Cog 分支 / 引用",
+    "Optional branch or ref used when creating a new Cog workspace (defaults to main if unset).": "创建新 Cog 工作区时使用的可选分支或引用（未设置时默认为 main）。",
+    "Sync JJ Worktrees to Head": "将 JJ 工作树同步至最新提交 (Head)",
+    "Sync newly created JJ worktrees to head when starting a conversation.": "开始会话时将新创建的 JJ 工作树同步至最新提交 (Head)。",
+    "Logs each telemetry event to the browser's DevTools console as it fires, with the click or key that caused it. Stays on across reloads until you turn it off.": "在每个遥测事件触发时将其及触发的点击或按键记录到浏览器的开发者工具控制台。重载页面后仍保持开启，直至手动关闭。",
+    "Select or enter a workspace URI": "选择或输入工作区 URI",
+    "Stored and mounted in your cloud environment": "已存储并挂载至您的云端环境",
+    "Uploaded project files and in-chat attachments are stored on Google servers and mounted into your cloud sandbox so your agent can read and work with them.": "上传的项目文件与对话附件将存储在 Google 服务器上，并挂载到您的云端沙盒中，以便智能体读取和处理。",
+    "Connected Google Drive and GitHub resources": "已连接的 Google Drive 与 GitHub 资源",
+    "Files, folders, and repositories you connect are accessible to your agent in this project, including during background or scheduled runs.": "您连接的文件、文件夹和代码仓库可供当前项目中的智能体访问（包括在后台或定时运行期间）。",
+    "Manage and delete your data anytime": "随时管理与删除您的数据",
+    "Remove individual uploaded files or connected resources in Project Settings, or delete a project or conversation to remove its stored files.": "可在项目设置中移除单个已上传文件或已连接资源，或通过删除项目/会话来清除其存储的文件。",
+    "Files and resources in cloud workspaces": "云端工作区中的文件与资源",
+    "Failed to revert conversation": "回滚会话失败",
+    "Modified": "已修改",
+    "Deleted": "已删除",
+    "Renamed": "已重命名",
+    "Commands": "命令",
+    "Before": "修改前",
+    "After": "修改后",
+    "Could not create Cog workspace": "无法创建 Cog 工作区",
+    "Remote agents are busy": "远程智能体繁忙",
+    "Daily environment time used": "今日环境时长已用完",
+    "Too many environments running": "运行中的环境过多",
+    "Daily conversation limit reached": "已达到每日会话上限",
+    "Conversation limit reached": "已达到会话上限",
+    "Failed to send side question": "发送旁路提问失败",
+    "Failed to start side question": "发起旁路提问失败",
+    "No model specified for Battle Mode, falling back to use current selected model": "对战模式未指定模型，已回退使用当前所选模型",
+    "Conversation Unarchived": "会话已取消归档",
+    "Errors": "错误",
+    "view full search results": "查看完整搜索结果",
+    "Recent files": "最近文件",
+    "Build with one agent or a team": "单智能体或团队协作构建",
+    "Describe what you want. Your agent plans and builds it, and brings in other agents when needed.": "描述您的需求。智能体将负责规划与构建，并在需要时协同其他智能体共同完成。",
+    "Review plans and walkthroughs": "审查计划与总结报告",
+    "Comment on the plan before your agent starts, and get a walkthrough when it finishes.": "在智能体开始前对计划发表评论，并在完成后获取详细的总结报告。",
+    "Set the rules, define the boundaries.": "设定规则，明确边界。",
+    "By default, agents work in folders you choose and ask before sensitive changes. Adjust this anytime in Settings.": "默认情况下，智能体仅在您选择的文件夹内工作，并在执行敏感更改前征求同意。您可随时在设置中调整。",
+    "Getting started with Google Antigravity": "Google Antigravity 入门指南",
+    "Uploading to Google Drive...": "正在上传至 Google Drive...",
+    "Starting": "正在启动",
+    "Search Google Drive": "搜索 Google Drive",
+    "Install or enable the Google Drive plugin in Customizations to search files with @drive: or paste Drive links": "请在「自定义扩展」中安装或启用 Google Drive 插件，以使用 @drive: 搜索文件或粘贴云端硬盘链接",
+    "Resume it to load this file.": "恢复环境以加载此文件。",
+    "Custom View": "自定义视图",
+    "More cloud environments": "更多云端环境",
+    "New Remote Project": "新建远程项目",
+    "Failed to create remote project": "创建远程项目失败",
+    "Free": "免费",
+    "(Optional) Tell us more or type your reason...": "（可选）提供更多详情或输入您的原因...",
+    "Authentication expired": "身份认证已过期",
+    "Log back in": "重新登录",
+    "Usage": "用量",
+    "Couldn't edit queued message": "无法编辑排队中的消息",
+    "Invalid Media": "无效的媒体文件",
+    "Couldn't load Google Drive link title": "无法加载 Google Drive 链接标题",
+    "Links": "链接",
+    "No links": "暂无链接",
+    "Switch Roles": "切换角色",
+    "Refreshed credentials for all automations.": "已刷新所有自动化任务的凭据。",
+    "Failed to refresh credentials": "刷新凭据失败",
+    "Review pending conversations": "审查待处理的会话",
+    "Address CLs needing attention": "处理需要关注的 CL",
+    "Enter workspace name (e.g., my-feature)": "输入工作区名称（例如 my-feature）",
+    "Search GoB repositories...": "搜索 GoB 仓库...",
+    "Delete ABFS Workspace": "删除 ABFS 工作区",
+    "Resume it to open a new terminal. Anything that was running in this one has stopped.": "恢复环境以打开新终端。此前在此终端中运行的所有进程均已停止。",
+    "Search filters…": "搜索筛选条件…",
+    "Search filters...": "搜索筛选条件...",
+    "Task": "任务",
+    "Where": "位置",
+    "When": "时间",
+    "Search triggers…": "搜索触发器…",
+    "Search triggers...": "搜索触发器...",
+    "Reset State": "重置状态",
+    "Block": "拦截",
+    "(empty)": "（空）",
+    "Online": "在线",
+    "Offline": "离线",
+    "Thumbnails": "缩略图",
+    "Custom…": "自定义…",
+    "Interface Layout": "界面布局",
+    "Knowledge Work": "知识办公",
+    "Simplified interface for research, writing, and everyday tasks.": "面向调研、写作与日常办公任务的精简界面。",
+    "Software Engineering": "软件工程",
+    "Full interface for coding, developer tools, and managing agents.": "包含代码编写、开发者工具与智能体管理的完整界面。",
+    "Chat Layout": "对话布局",
+    "Configure built-in browser, link opening, and browser subagent preferences.": "配置内置浏览器、链接打开方式及浏览器子智能体偏好设置。",
+    "Configure allowed and denied URLs for the browser subagent. It runs in the built-in browser, so no separate browser install is needed.": "配置浏览器子智能体允许与禁止访问的 URL 地址。该智能体直接在内置浏览器中运行，无需单独安装外部浏览器。",
+    "Configure allowed and denied URLs for the browser subagent (invoked with /browser). Requires": "配置浏览器子智能体（通过 /browser 调用）允许与禁止访问的 URL 地址。需要安装",
+    "Download files": "下载文件",
+    "Allow/deny agent browser file downloads from specific sites.": "允许或禁止智能体浏览器从特定网站下载文件。",
+    "e.g., example.com": "例如：example.com",
+    "e.g., https://example.com": "例如：https://example.com",
+    "e.g., /path/to/file": "例如：/path/to/file",
+    "e.g., npm test": "例如：npm test",
+    "e.g., curl": "例如：curl",
+    "CitC workspace paths are world-readable and permanently snapshotted. Choose a local folder outside CitC.": "CitC 工作区路径为全局可读且会被永久快照记录。请选择 CitC 以外的本地文件夹。",
+    "Change…": "更改…",
+    "Browser downloads": "浏览器下载",
+    "Cookies and site data": "Cookie 与网站数据",
+    "Clear cookies and site data": "清除 Cookie 与网站数据",
+    "Your connection is not private": "您的连接不是私密连接",
+    "Certificate details": "证书详情",
+    "Issued to": "颁发给",
+    "Issued by": "颁发者",
+    "Valid until": "有效期至",
+    "Protocol": "协议",
+    "Embedding Limitations": "内嵌限制说明",
+    "Browser is currently being operated by this conversation in another Hub window": "当前会话正在另一个主窗口中操作浏览器",
+    "Let's tailor the experience for you. What best describes your work?": "让我们为您量身定制体验。以下哪项最符合您的工作？",
+    "Data & Analytics": "数据与分析",
+    "Science": "科学研究",
+    "Design": "产品设计",
+    "Antigravity can review code, trace errors, and ship across your stack.": "Antigravity 可协助您审查代码、追踪错误并在全栈环境中交付项目。",
+    "Antigravity can turn notes and docs into plans, decks, and action items.": "Antigravity 可将笔记与文档转化为方案计划、演示文稿和待办事项。",
+    "Antigravity can query tables, clean spreadsheets, and chart trends.": "Antigravity 可查询数据表、清洗电子表格并绘制趋势图表。",
+    "Antigravity can review literature, design experiments, and analyze results.": "Antigravity 可协助查阅文献、设计实验并分析实验结果。",
+    "Antigravity can turn your designs into live code, briefs, and assets.": "Antigravity 可将您的设计稿转化为可用代码、设计简报与素材资源。",
+    "Antigravity can draft docs, analyze files, and organize your work.": "Antigravity 可协助起草文档、分析文件并整理您的日常工作。",
+    "Build me a web app": "帮我构建一个 Web 应用",
+    "Add a Gemini feature to my app": "为我的应用添加 Gemini 功能",
+    "Bring over my setup from other Agentic Developer Tools": "从其他智能体开发工具迁移我的配置",
+    "Brief me on my meetings every morning": "每天早上为我汇总今日会议简报",
+    "Catch up on my recent meeting notes": "梳理我最近的会议纪要",
+    "Turn a doc into a slide deck": "将文档转化为演示文稿 (PPT)",
+    "Check a BigQuery table for anomalies": "检查 BigQuery 数据表中的异常波动",
+    "Build a dashboard from my sheet": "根据我的电子表格构建数据看板",
+    "Analyze user trends and retention cohorts": "分析用户趋势与留存群组",
+    "Synthesize recent preprints and papers on a topic": "综述特定课题的最新预印本与论文",
+    "Visualize a protein's 3D structure": "可视化蛋白质的 3D 结构",
+    "Prioritize genetic targets and pathways for a disease": "评估疾病相关的基因靶点与通路优先级",
+    "Analyze small-molecule bioactivity and drug-likeness": "分析小分子生物活性与成药性",
+    "Build a page from my Figma design": "根据我的 Figma 设计稿构建网页",
+    "Turn a screenshot into a web page": "将截图转化为响应式网页",
+    "Write a design brief from my research": "根据我的调研内容撰写设计简报",
+    "Summarize a spreadsheet": "总结电子表格的核心趋势",
+    "Dismiss suggestion": "忽略建议",
+    "One last thing before getting started…": "开始前的最后一步…",
+    "A few things to know, and a couple settings to review.": "了解几项核心说明，并确认您的偏好设置。",
+    "Here's how you and your agents work together": "了解您与智能体的协作方式",
+    "Optimized for you": "为您量身优化",
+    "Built to help, not hurt": "安全可靠，保驾护航",
+    "You are in control": "始终由您掌控",
+    "Stay up to date.": "保持最新动态。",
+    "New Preview": "新建预览",
+    "Link Settings": "链接设置",
+    "Controls whether terminal commands require your approval before running.\n\nNote: A change to this setting will only apply to new messages sent to the agent. In-progress responses will use the previous setting value.": "控制运行终端命令前是否需要征得您的批准。\n\n注意：更改此设置仅对随后发送给智能体的新消息生效，正在执行中的回复仍使用之前的设置。",
+    "Developer-only tools. These settings do not affect other users.": "仅供开发者使用的工具。这些设置不会影响其他用户。",
+    "Developer: Reset Onboarding": "开发者：重置新手引导",
+    "Developer: Reset NUX": "开发者：重置首次体验提示 (NUX)",
+    "Open in tab": "在新标签页中打开",
+    "Open in Cider": "在 Cider 中打开",
+    "Open in full conversation": "在完整会话中打开",
+    "Send reply": "发送回复",
+    "Side Questions": "旁路提问",
+    "New Side Question": "新建旁路提问",
+    "Delete Side Question": "删除旁路提问",
+    "Failed to delete side question": "删除旁路提问失败",
+    "Keep Open": "保持打开",
+    "This conversation is not on disk. Delete it to remove it from your sidebar.": "此会话未保存在本地磁盘上。将其删除即可从侧边栏移除。",
+    "The conversation could not be loaded because its data was not found.": "未找到会话数据，无法加载该会话。",
+    "This conversation is also open in another app. Sending messages from both may cause conflicts.": "此会话同时在另一个应用中打开，从两端同时发送消息可能会导致冲突。",
+    "Your session has expired. Please log back in to continue.": "您的登录会话已过期，请重新登录以继续。",
+    "It was already sent or couldn't be removed from the queue.": "该消息已发送或无法从队列中移除。",
+    "Link copied to clipboard.": "链接已复制到剪贴板。",
+    "Inline PDF preview is not available in this environment.": "当前环境不支持内联 PDF 预览。",
+    "Preview is not available for this file type.": "暂不支持预览此文件类型。",
+    "Binary file not shown": "未显示二进制文件",
+    "Filter rows...": "筛选行...",
+    "Find References": "查找引用",
+    "Filter files...": "筛选文件...",
+    "Added": "新增",
+    "Untracked": "未跟踪",
+    "Download File": "下载文件",
+    "Open Blame in Code Search": "在代码搜索中打开 Blame 追溯",
+    "Time Zone": "时区",
+    "Your changes were not saved. Please try again.": "您的更改未保存，请重试。",
+    "Download this site as an app to get notified when the agent needs your attention or completes a task.": "将此网站安装为桌面应用，以便在智能体需要您关注或完成任务时接收通知。",
+    "Get notified when the agent needs your attention or completes a task.": "在智能体需要您关注或完成任务时接收通知。",
+    "Failed to validate the saved GitHub token.": "验证已保存的 GitHub 令牌失败。",
+    "Failed to save token to ~/.env": "保存令牌至 ~/.env 失败",
+    "Failed to render math": "渲染数学公式失败",
+    "Failed to render diagram": "渲染图表失败",
+    "Loading instances...": "正在加载实例...",
+    "No instances yet.": "暂无实例。",
+    "Create a project first.": "请先创建一个项目。",
+    "Show in Sidebar": "在侧边栏中显示",
+    "Customize Sections": "自定义分组",
+    "Auto Pin": "自动置顶",
+    "Failed to load shared conversation": "加载共享会话失败",
+    "Resolving link…": "正在解析链接…",
+    "Starting terminal…": "正在启动终端…",
+    "Removing the bundle removes all of its plugins.": "移除此套件将同时移除其中包含的所有插件。",
+    "You can also add or remove each plugin below.": "您也可以在下方单独添加或移除各个插件。",
+    "Use Business Account": "使用企业账号",
+    "Continue with SSO": "使用 SSO 单点登录继续",
+    "WIF Config": "WIF 配置",
+    "Sign In with SSO": "通过 SSO 登录",
+    "Having trouble signing in?": "登录遇到问题？",
+    "Copy sign-in link": "复制登录链接",
+    "Rewinds the conversation only. Files in this folder stay as they are now.": "仅回退会话记录，此文件夹中的文件保持现状。",
+    "Creating worktree for the forked conversation...": "正在为分支会话创建工作树...",
+    "Creating workspace for the forked conversation...": "正在为分支会话创建工作区...",
+    "3D Interactive Qingming Scroll": "3D互动清明上河图",
+    "Guandu District Government Exchange Strategy": "官渡自贸区政企交流汇报方案",
+    "Xiaomi TV Startup Password Protection": "小米电视开机密码保护",
+    "Antigravity File Preview Tools": "Antigravity 文件预览工具",
+    "Agent Execution Error Troubleshooting": "智能体执行报错排查",
+    "Google One Subscription Started": "Google One 订阅与 API 配置",
+    "Making A Moving Metal Butterfly": "制作动态金属蝴蝶",
+    "HTML File Not Opening": "HTML 文件无法打开排查",
+    "XiaoMi AI Membership Refund Request": "小米 AI 会员退费申请",
+    "WeChat Image Stuck Issue": "微信图片卡顿问题排查",
+    "Self Introduction Animation Creation": "自我介绍动画制作",
+    "Initial Conversation Greeting": "初次对话问候",
+    "Google AI Ultra Plan Benefits": "Google AI Ultra 套餐权益解析",
+    "Google One Ultra Subscription Options": "Google One Ultra 订阅方案",
+    "Word Document for License Plate": "车牌号横向 A4 Word 文档制作",
+    "Clean Up Gmail Inbox": "清理 Gmail 收件箱",
+    "Gemini 4 Argon Vs Claude Opus 5.5 Comparison": "Gemini 4 Argon 与 Claude Opus 5.5 对比",
+    "Bypassing Google Phone Verification": "Google 账号注册手机验证处理",
+    "Google Ultra 20X Family Sharing Allocation": "Google Ultra 20X 家庭共享额度分配",
+    "China Number Sending to 96831 Issue": "中国号码发送短信至 96831 失败排查"
   },
   "patterns": [
     {
@@ -4968,9 +5584,75 @@
     {
       "regex": "^Select\\s+(.+?)\\s+Theme$",
       "replacement": "选择 $1 主题"
+    },
+    {
+      "regex": "^(\\d+)\\s+projects?$",
+      "replacement": "$1 个项目"
+    },
+    {
+      "regex": "^Modified in\\s+(\\d+)\\s+projects?$",
+      "replacement": "已在 $1 个项目中修改"
+    },
+    {
+      "regex": "^Move to Group:\\s*(.+)$",
+      "replacement": "移动到分组：$1"
+    },
+    {
+      "regex": "^Forked from\\s+(.+)$",
+      "replacement": "分支自 $1"
+    },
+    {
+      "regex": "^Where the agent runs, current:\\s*(.+)$",
+      "replacement": "智能体运行位置，当前：$1"
+    },
+    {
+      "regex": "^Select project, current:\\s*(.+)$",
+      "replacement": "选择项目，当前：$1"
+    },
+    {
+      "regex": "^(\\d+)\\s+[Ss]ide [Qq]uestions?$",
+      "replacement": "$1 个旁路提问"
+    },
+    {
+      "regex": "^View\\s+(\\d+)\\s+side questions?$",
+      "replacement": "查看 $1 个旁路提问"
+    },
+    {
+      "regex": "^Side Question:\\s*(.+)$",
+      "replacement": "旁路提问：$1"
+    },
+    {
+      "regex": "^Question\\s+(\\d+)\\s+of\\s+(\\d+)$",
+      "replacement": "第 $1 / $2 个问题"
+    },
+    {
+      "regex": "^Show\\s+(\\d+)\\s+earlier steps?$",
+      "replacement": "显示前 $1 个步骤"
+    },
+    {
+      "regex": "^Proceed with implementation plan and (\\d+) comments?$",
+      "replacement": "按实施计划继续执行（附带 $1 条评论）"
+    },
+    {
+      "regex": "^Send all\\s*\\((\\d+)\\)$",
+      "replacement": "全部发送 ($1)"
+    },
+    {
+      "regex": "^Sort and filter conversations\\s*\\((\\d+)\\s+active\\)$",
+      "replacement": "排序与筛选会话（$1 个活跃）"
+    },
+    {
+      "regex": "^Marked\\s+(\\d+)\\s+conversations?\\s+as read$",
+      "replacement": "已将 $1 个会话标记为已读"
     }
   ]
 };
+    if (typeof window.__AGY_HOT_RELOAD_DICT__ === 'function' && window.__AGY_ENGINE_EPOCH__ && typeof window.__AGY_SYNC_CONVO_TITLES__ === 'function') {
+      window.__AGY_HOT_RELOAD_DICT__(window.__AGY_I18N_DATA__);
+      window.__AGY_SYNC_CONVO_TITLES__();
+      return;
+    }
+    window.__AGY_I18N_INITIALIZED__ = false;
     /**
  * Antigravity Chinese Localization Engine (Runtime v3.3.4)
  * 支持 2.17.0 复合 Alert 自愈 / WSL 跨平台菜单与弹窗适配 / 官方 10 大插件与 131 项技能全量汉化 / 极速性能闭环
@@ -5156,7 +5838,12 @@
     };
   }
 
-  if (root && root.__AGY_I18N_INITIALIZED__) return;
+  if (root && root.__AGY_I18N_INITIALIZED__ && root.__AGY_ENGINE_EPOCH__) {
+    if (typeof root.__AGY_HOT_RELOAD_DICT__ === 'function' && root.__AGY_I18N_DATA__) {
+      root.__AGY_HOT_RELOAD_DICT__(root.__AGY_I18N_DATA__);
+    }
+    return;
+  }
   if (root) root.__AGY_I18N_INITIALIZED__ = true;
 
   var doc = root ? (root.document || (typeof document !== 'undefined' ? document : null)) : null;
@@ -5167,7 +5854,7 @@
   var patterns = defaultEngine.patterns;
   var translationCache = defaultEngine.cache;
   var normalizeWhitespace = defaultEngine.normalizeWhitespace;
-  var translateSingleUnit = defaultEngine.translate;
+  var translateSingleUnit = function (s) { return defaultEngine.translate(s); };
 
   var IGNORED_TAGS = {
     'SCRIPT': 1, 'STYLE': 1, 'CODE': 1, 'PRE': 1, 'NOSCRIPT': 1,
@@ -5252,8 +5939,11 @@
 
 
 
-  // 标记属性名，用于避免重复翻译
-  var MARK_ATTR = '_agyDone';
+  // 引擎代数（用于热重载与多实例隔离，避免旧闭包否定缓存干扰新词库）
+  var engineEpoch = (root && (root.__AGY_ENGINE_EPOCH__ = (root.__AGY_ENGINE_EPOCH__ || 0) + 1)) || 1;
+  var ORIG_PROP = '_agyOrig_' + engineEpoch;
+  var MARK_ATTR = '_agyDone_' + engineEpoch;
+  var SCAN_PROP = '_agyScan_' + engineEpoch;
 
   // 扫描轮次 ID，同一轮全量扫描中元素只处理一次
   var currentScanId = 0;
@@ -5267,17 +5957,18 @@
     if (!original) return;
 
     // 如果节点已标记原始文本且未变化，直接 O(1) 瞬时退出
-    if (node._agyOriginal === original) return;
+    if (node[ORIG_PROP] === original) return;
 
     var trimmed = original.trim();
     if (!trimmed) {
       // 对纯空白节点补充否定标记，二次扫描直接 O(1) 退出，避免重复调用 trim()
-      node._agyOriginal = original;
+      node[ORIG_PROP] = original;
       return;
     }
 
     if (trimmed === '.' && node.previousSibling && /[\u4e00-\u9fa5]/.test(node.previousSibling.textContent || '')) {
       node.nodeValue = original.replace('.', '。');
+      node[ORIG_PROP] = node.nodeValue;
       node._agyOriginal = node.nodeValue;
       return;
     }
@@ -5294,10 +5985,11 @@
         }
       }
       node.nodeValue = leadingSpace + translated + trailingSpace;
-      node._agyOriginal = node.nodeValue; // 记录翻译后的值，防止重复处理
+      node[ORIG_PROP] = node.nodeValue; // 记录翻译后的值，防止重复处理
+      node._agyOriginal = node.nodeValue;
     } else {
       // 关键性能优化：补充 DOM 否定标记，未命中时记录原始文本，二次扫描直接 O(1) 退出
-      node._agyOriginal = original;
+      node[ORIG_PROP] = original;
     }
   }
 
@@ -5349,8 +6041,8 @@
     if (shouldIgnoreElement(el)) return;
 
     // 同一轮扫描中，已处理的元素跳过
-    if (scanId && el._agyScanId === scanId) return;
-    if (scanId) el._agyScanId = scanId;
+    if (scanId && el[SCAN_PROP] === scanId) return;
+    if (scanId) el[SCAN_PROP] = scanId;
 
     // 复合组件自愈：处理特定 JSX 碎片化 Alert（如 plan-command-fyi-alert）
     if (el.getAttribute && el.getAttribute('data-testid') === 'plan-command-fyi-alert') {
@@ -5360,6 +6052,7 @@
         while (alertChild) {
           if (alertChild.nodeType === 3 && alertChild.nodeValue && alertChild.nodeValue.trim() === 'Type') {
             alertChild.nodeValue = alertChild.nodeValue.replace('Type', '输入');
+            alertChild[ORIG_PROP] = alertChild.nodeValue;
             alertChild._agyOriginal = alertChild.nodeValue;
           }
           alertChild = alertChild.nextSibling;
@@ -5409,10 +6102,12 @@
           var combinedTrans = translateSingleUnit(combinedText);
           if (combinedTrans !== null && combinedTrans !== combinedText) {
             first.nodeValue = combinedTrans;
+            first[ORIG_PROP] = combinedTrans;
             first._agyOriginal = combinedTrans;
             var other = first.nextSibling;
             while (other) {
               other.nodeValue = '';
+              other[ORIG_PROP] = '';
               other._agyOriginal = '';
               other = other.nextSibling;
             }
@@ -5438,16 +6133,19 @@
         }
         if (alsoNode && whenNode) {
           alsoNode.nodeValue = '在此项目中工作时，也包含';
+          alsoNode[ORIG_PROP] = alsoNode.nodeValue;
           alsoNode._agyOriginal = alsoNode.nodeValue;
           var between = alsoNode.nextSibling;
           while (between && between !== whenNode) {
             if (between.nodeType === 3 && !between.nodeValue.trim()) {
               between.nodeValue = '';
+              between[ORIG_PROP] = '';
               between._agyOriginal = '';
             }
             between = between.nextSibling;
           }
           whenNode.nodeValue = '。';
+          whenNode[ORIG_PROP] = whenNode.nodeValue;
           whenNode._agyOriginal = whenNode.nodeValue;
         }
       }
@@ -5588,6 +6286,7 @@
           } else if (mutation.type === 'characterData') {
             // 文本内容变化，重置标记使其可以被重新翻译
             if (mutation.target) {
+              mutation.target[ORIG_PROP] = undefined;
               mutation.target._agyOriginal = undefined;
               enqueueNode(mutation.target);
             }
@@ -5615,7 +6314,10 @@
         safeFullScan();
       }
     }
-    setInterval(scheduleIdleScan, 15000);
+    if (root.__AGY_IDLE_SCAN_TIMER__) {
+      clearInterval(root.__AGY_IDLE_SCAN_TIMER__);
+    }
+    root.__AGY_IDLE_SCAN_TIMER__ = setInterval(scheduleIdleScan, 15000);
   }
 
   function isFloatingElement(el) {
@@ -5715,18 +6417,217 @@
         }, 50);
       };
 
+      if (root.__AGY_HOVER_HANDLER__) {
+        doc.removeEventListener('pointerenter', root.__AGY_HOVER_HANDLER__, { capture: true });
+        doc.removeEventListener('contextmenu', root.__AGY_HOVER_HANDLER__, { capture: true });
+      }
+      root.__AGY_HOVER_HANDLER__ = onHoverAction;
       doc.addEventListener('pointerenter', onHoverAction, { capture: true, passive: true });
       doc.addEventListener('contextmenu', onHoverAction, { capture: true, passive: true });
     } catch (e) {}
   }
 
   if (root) {
+    if (root.__AGY_PREV_DISCONNECT__) {
+      try { root.__AGY_PREV_DISCONNECT__(); } catch (e) {}
+    }
+    root.__AGY_PREV_DISCONNECT__ = disconnectObserver;
+    root.__AGY_ACTIVE_FLUSH__ = flushPendingNodes;
+    if (root.requestAnimationFrame && !root.__AGY_RAF_WRAPPED__) {
+      var origRaf = root.requestAnimationFrame.bind(root);
+      root.requestAnimationFrame = function (cb) {
+        if (cb && cb.name === 'flushPendingNodes' && cb !== root.__AGY_ACTIVE_FLUSH__) {
+          return 0;
+        }
+        return origRaf(cb);
+      };
+      root.__AGY_RAF_WRAPPED__ = true;
+    }
+
+    root.__AGY_HOT_RELOAD_DICT__ = function (newDictData) {
+      if (!newDictData) return;
+      engineEpoch = (root.__AGY_ENGINE_EPOCH__ = (root.__AGY_ENGINE_EPOCH__ || 0) + 1);
+      ORIG_PROP = '_agyOrig_' + engineEpoch;
+      MARK_ATTR = '_agyDone_' + engineEpoch;
+      SCAN_PROP = '_agyScan_' + engineEpoch;
+      defaultEngine = createI18nEngine(newDictData);
+      exactDict = defaultEngine.exactDict;
+      patterns = defaultEngine.patterns;
+      translationCache = defaultEngine.cache;
+      root.__AGY_CACHE__ = translationCache;
+      if (doc && doc.documentElement) {
+        safeFullScan();
+      }
+      if (root.__AGY_SYNC_CONVO_TITLES__) {
+        root.__AGY_SYNC_CONVO_TITLES__();
+      }
+    };
     root.__AGY_CREATE_ENGINE__ = createI18nEngine;
     root.__AGY_TRANSLATE_UNIT__ = translateSingleUnit;
     root.__AGY_TRANSLATE_EL__ = translateElement;
     root.__AGY_RUN_FULL_SCAN__ = safeFullScan;
     root.__AGY_CACHE__ = translationCache;
     root.__AGY_IS_FLOATING__ = isFloatingElement;
+
+    // ============ 左侧会话列表已知英文标题精准字典映射（不强制机翻专有名词/品牌词） ============
+    var outerHasOwn = Object.prototype.hasOwnProperty;
+    var TITLE_CACHE_KEY = '__AGY_CONVO_TITLE_ZH_CACHE_V1__';
+    try {
+      if (root.localStorage) {
+        root.localStorage.removeItem(TITLE_CACHE_KEY);
+      }
+    } catch (e) {}
+
+    var persistedTitleMap = {};
+    var cachedStore = null;
+    var cachedSvc = null;
+    var storeSubscribed = false;
+
+    function findStoreAndService() {
+      if (cachedStore && cachedSvc) return { store: cachedStore, svc: cachedSvc };
+      if (!doc) return null;
+      var rootEl = doc.getElementById('root');
+      if (!rootEl) return null;
+      var keys = Object.keys(rootEl);
+      var fiberKey = null;
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i].indexOf('__reactContainer$') === 0) {
+          fiberKey = keys[i];
+          break;
+        }
+      }
+      if (!fiberKey || !rootEl[fiberKey]) return null;
+      var q = [rootEl[fiberKey]];
+      var steps = 0;
+      while (q.length > 0 && steps < 6000) {
+        steps++;
+        var cur = q.shift();
+        if (!cur) continue;
+        var mp = cur.memoizedProps;
+        if (mp) {
+          if (!cachedStore && mp.store && typeof mp.store.getState === 'function') {
+            cachedStore = mp.store;
+          }
+          var v = mp.value;
+          if (v && typeof v === 'object') {
+            if (!cachedStore && v.store && typeof v.store.getState === 'function') {
+              cachedStore = v.store;
+            }
+            if (!cachedSvc && typeof v.updateConversationAnnotations === 'function') {
+              cachedSvc = v;
+            }
+          }
+        }
+        if (cachedStore && cachedSvc) break;
+        if (cur.child) q.push(cur.child);
+        if (cur.sibling) q.push(cur.sibling);
+      }
+      return cachedStore ? { store: cachedStore, svc: cachedSvc } : null;
+    }
+
+    function applyTranslatedTitle(store, svc, cascadeId, origSummaryObj, enTitle, zhTitle) {
+      if (!zhTitle || zhTitle === enTitle) return;
+      try {
+        store.dispatch({
+          type: 'trajectorySummaries/applyOptimisticAnnotation',
+          payload: {
+            cascadeId: cascadeId,
+            annotations: { title: zhTitle }
+          }
+        });
+      } catch (e) {}
+
+      var persistKey = cascadeId + '::' + zhTitle;
+      if (!persistedTitleMap[persistKey] && svc && typeof svc.updateConversationAnnotations === 'function') {
+        persistedTitleMap[persistKey] = true;
+        try {
+          var sampleAnnot = origSummaryObj && origSummaryObj.annotations;
+          var proto = sampleAnnot ? Object.create(Object.getPrototypeOf(sampleAnnot)) : {};
+          proto.$typeName = 'exa.jetski_cortex_pb.ConversationAnnotations';
+          proto.tags = (sampleAnnot && sampleAnnot.tags) || [];
+          proto.cls = (sampleAnnot && sampleAnnot.cls) || [];
+          proto.sideQuestionCascadeIds = (sampleAnnot && sampleAnnot.sideQuestionCascadeIds) || [];
+          proto.sideQuestionTitles = (sampleAnnot && sampleAnnot.sideQuestionTitles) || {};
+          proto.title = zhTitle;
+          svc.updateConversationAnnotations(cascadeId, proto, true).catch(function () {});
+        } catch (e) {}
+      }
+
+      if (doc && doc.documentElement) {
+        safeFullScan();
+      }
+    }
+
+    function translateAndPersistTitle(store, svc, cascadeId, s, effectiveTitle) {
+      // 自动修复此前被机翻误伤的专有英文名称
+      if (effectiveTitle === '克劳德·卡格' || effectiveTitle === '克劳德·凯奇') {
+        applyTranslatedTitle(store, svc, cascadeId, s, effectiveTitle, 'Claude Cage');
+        return;
+      }
+      // 仅对精选词典中明确收录的描述性英文标题做精准映射，绝不调用机翻强行音译英文专有名词
+      var knownZh = outerHasOwn.call(exactDict, effectiveTitle) ? exactDict[effectiveTitle] : null;
+      if (knownZh && /[\u4e00-\u9fa5]/.test(knownZh)) {
+        applyTranslatedTitle(store, svc, cascadeId, s, effectiveTitle, knownZh);
+      }
+    }
+
+    var isSyncingTitles = false;
+    function syncConversationTitles() {
+      if (isSyncingTitles) return;
+      var ctx = findStoreAndService();
+      if (!ctx) return;
+      var store = ctx.store;
+      var svc = ctx.svc;
+
+      if (!storeSubscribed && typeof store.subscribe === 'function') {
+        storeSubscribed = true;
+        if (root.__AGY_STORE_UNSUB__) {
+          try { root.__AGY_STORE_UNSUB__(); } catch (e) {}
+        }
+        var debounceTimer = null;
+        root.__AGY_STORE_UNSUB__ = store.subscribe(function () {
+          if (debounceTimer) return;
+          debounceTimer = setTimeout(function () {
+            debounceTimer = null;
+            if (root.__AGY_SYNC_CONVO_TITLES__) {
+              root.__AGY_SYNC_CONVO_TITLES__();
+            }
+          }, 400);
+        });
+      }
+
+      isSyncingTitles = true;
+      try {
+        var st = store.getState();
+        var summaries = st && st.trajectorySummaries && st.trajectorySummaries.summaries;
+        if (summaries) {
+          var ids = Object.keys(summaries);
+          for (var i = 0; i < ids.length; i++) {
+            var id = ids[i];
+            var s = summaries[id];
+            if (!s) continue;
+            if (s.trajectoryMetadata && s.trajectoryMetadata.parentConversationId) continue;
+            var annotTitle = s.annotations && s.annotations.title ? s.annotations.title.trim() : '';
+            var sumTitle = s.summary ? s.summary.trim() : '';
+            var effectiveTitle = annotTitle || sumTitle;
+            if (effectiveTitle) {
+              translateAndPersistTitle(store, svc, id, s, effectiveTitle);
+            }
+          }
+        }
+      } catch (e) {}
+      isSyncingTitles = false;
+    }
+
+    root.__AGY_SYNC_CONVO_TITLES__ = syncConversationTitles;
+    setTimeout(syncConversationTitles, 800);
+    setTimeout(syncConversationTitles, 2500);
+    if (root.__AGY_CONVO_SYNC_TIMER__) {
+      clearInterval(root.__AGY_CONVO_SYNC_TIMER__);
+    }
+    root.__AGY_CONVO_SYNC_TIMER__ = setInterval(function () {
+      if (root.__AGY_SYNC_CONVO_TITLES__) root.__AGY_SYNC_CONVO_TITLES__();
+    }, 6000);
   }
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
 

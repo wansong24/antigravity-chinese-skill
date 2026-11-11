@@ -659,7 +659,10 @@
         safeFullScan();
       }
     }
-    setInterval(scheduleIdleScan, 15000);
+    if (root.__AGY_IDLE_SCAN_TIMER__) {
+      clearInterval(root.__AGY_IDLE_SCAN_TIMER__);
+    }
+    root.__AGY_IDLE_SCAN_TIMER__ = setInterval(scheduleIdleScan, 15000);
   }
 
   function isFloatingElement(el) {
@@ -759,12 +762,21 @@
         }, 50);
       };
 
+      if (root.__AGY_HOVER_HANDLER__) {
+        doc.removeEventListener('pointerenter', root.__AGY_HOVER_HANDLER__, { capture: true });
+        doc.removeEventListener('contextmenu', root.__AGY_HOVER_HANDLER__, { capture: true });
+      }
+      root.__AGY_HOVER_HANDLER__ = onHoverAction;
       doc.addEventListener('pointerenter', onHoverAction, { capture: true, passive: true });
       doc.addEventListener('contextmenu', onHoverAction, { capture: true, passive: true });
     } catch (e) {}
   }
 
   if (root) {
+    if (root.__AGY_PREV_DISCONNECT__) {
+      try { root.__AGY_PREV_DISCONNECT__(); } catch (e) {}
+    }
+    root.__AGY_PREV_DISCONNECT__ = disconnectObserver;
     root.__AGY_ACTIVE_FLUSH__ = flushPendingNodes;
     if (root.requestAnimationFrame && !root.__AGY_RAF_WRAPPED__) {
       var origRaf = root.requestAnimationFrame.bind(root);
@@ -791,6 +803,9 @@
       if (doc && doc.documentElement) {
         safeFullScan();
       }
+      if (root.__AGY_SYNC_CONVO_TITLES__) {
+        root.__AGY_SYNC_CONVO_TITLES__();
+      }
     };
     root.__AGY_CREATE_ENGINE__ = createI18nEngine;
     root.__AGY_TRANSLATE_UNIT__ = translateSingleUnit;
@@ -798,6 +813,166 @@
     root.__AGY_RUN_FULL_SCAN__ = safeFullScan;
     root.__AGY_CACHE__ = translationCache;
     root.__AGY_IS_FLOATING__ = isFloatingElement;
+
+    // ============ 左侧会话列表已知英文标题精准字典映射（不强制机翻专有名词/品牌词） ============
+    var outerHasOwn = Object.prototype.hasOwnProperty;
+    var TITLE_CACHE_KEY = '__AGY_CONVO_TITLE_ZH_CACHE_V1__';
+    try {
+      if (root.localStorage) {
+        root.localStorage.removeItem(TITLE_CACHE_KEY);
+      }
+    } catch (e) {}
+
+    var persistedTitleMap = {};
+    var cachedStore = null;
+    var cachedSvc = null;
+    var storeSubscribed = false;
+
+    function findStoreAndService() {
+      if (cachedStore && cachedSvc) return { store: cachedStore, svc: cachedSvc };
+      if (!doc) return null;
+      var rootEl = doc.getElementById('root');
+      if (!rootEl) return null;
+      var keys = Object.keys(rootEl);
+      var fiberKey = null;
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i].indexOf('__reactContainer$') === 0) {
+          fiberKey = keys[i];
+          break;
+        }
+      }
+      if (!fiberKey || !rootEl[fiberKey]) return null;
+      var q = [rootEl[fiberKey]];
+      var steps = 0;
+      while (q.length > 0 && steps < 6000) {
+        steps++;
+        var cur = q.shift();
+        if (!cur) continue;
+        var mp = cur.memoizedProps;
+        if (mp) {
+          if (!cachedStore && mp.store && typeof mp.store.getState === 'function') {
+            cachedStore = mp.store;
+          }
+          var v = mp.value;
+          if (v && typeof v === 'object') {
+            if (!cachedStore && v.store && typeof v.store.getState === 'function') {
+              cachedStore = v.store;
+            }
+            if (!cachedSvc && typeof v.updateConversationAnnotations === 'function') {
+              cachedSvc = v;
+            }
+          }
+        }
+        if (cachedStore && cachedSvc) break;
+        if (cur.child) q.push(cur.child);
+        if (cur.sibling) q.push(cur.sibling);
+      }
+      return cachedStore ? { store: cachedStore, svc: cachedSvc } : null;
+    }
+
+    function applyTranslatedTitle(store, svc, cascadeId, origSummaryObj, enTitle, zhTitle) {
+      if (!zhTitle || zhTitle === enTitle) return;
+      try {
+        store.dispatch({
+          type: 'trajectorySummaries/applyOptimisticAnnotation',
+          payload: {
+            cascadeId: cascadeId,
+            annotations: { title: zhTitle }
+          }
+        });
+      } catch (e) {}
+
+      var persistKey = cascadeId + '::' + zhTitle;
+      if (!persistedTitleMap[persistKey] && svc && typeof svc.updateConversationAnnotations === 'function') {
+        persistedTitleMap[persistKey] = true;
+        try {
+          var sampleAnnot = origSummaryObj && origSummaryObj.annotations;
+          var proto = sampleAnnot ? Object.create(Object.getPrototypeOf(sampleAnnot)) : {};
+          proto.$typeName = 'exa.jetski_cortex_pb.ConversationAnnotations';
+          proto.tags = (sampleAnnot && sampleAnnot.tags) || [];
+          proto.cls = (sampleAnnot && sampleAnnot.cls) || [];
+          proto.sideQuestionCascadeIds = (sampleAnnot && sampleAnnot.sideQuestionCascadeIds) || [];
+          proto.sideQuestionTitles = (sampleAnnot && sampleAnnot.sideQuestionTitles) || {};
+          proto.title = zhTitle;
+          svc.updateConversationAnnotations(cascadeId, proto, true).catch(function () {});
+        } catch (e) {}
+      }
+
+      if (doc && doc.documentElement) {
+        safeFullScan();
+      }
+    }
+
+    function translateAndPersistTitle(store, svc, cascadeId, s, effectiveTitle) {
+      // 自动修复此前被机翻误伤的专有英文名称
+      if (effectiveTitle === '克劳德·卡格' || effectiveTitle === '克劳德·凯奇') {
+        applyTranslatedTitle(store, svc, cascadeId, s, effectiveTitle, 'Claude Cage');
+        return;
+      }
+      // 仅对精选词典中明确收录的描述性英文标题做精准映射，绝不调用机翻强行音译英文专有名词
+      var knownZh = outerHasOwn.call(exactDict, effectiveTitle) ? exactDict[effectiveTitle] : null;
+      if (knownZh && /[\u4e00-\u9fa5]/.test(knownZh)) {
+        applyTranslatedTitle(store, svc, cascadeId, s, effectiveTitle, knownZh);
+      }
+    }
+
+    var isSyncingTitles = false;
+    function syncConversationTitles() {
+      if (isSyncingTitles) return;
+      var ctx = findStoreAndService();
+      if (!ctx) return;
+      var store = ctx.store;
+      var svc = ctx.svc;
+
+      if (!storeSubscribed && typeof store.subscribe === 'function') {
+        storeSubscribed = true;
+        if (root.__AGY_STORE_UNSUB__) {
+          try { root.__AGY_STORE_UNSUB__(); } catch (e) {}
+        }
+        var debounceTimer = null;
+        root.__AGY_STORE_UNSUB__ = store.subscribe(function () {
+          if (debounceTimer) return;
+          debounceTimer = setTimeout(function () {
+            debounceTimer = null;
+            if (root.__AGY_SYNC_CONVO_TITLES__) {
+              root.__AGY_SYNC_CONVO_TITLES__();
+            }
+          }, 400);
+        });
+      }
+
+      isSyncingTitles = true;
+      try {
+        var st = store.getState();
+        var summaries = st && st.trajectorySummaries && st.trajectorySummaries.summaries;
+        if (summaries) {
+          var ids = Object.keys(summaries);
+          for (var i = 0; i < ids.length; i++) {
+            var id = ids[i];
+            var s = summaries[id];
+            if (!s) continue;
+            if (s.trajectoryMetadata && s.trajectoryMetadata.parentConversationId) continue;
+            var annotTitle = s.annotations && s.annotations.title ? s.annotations.title.trim() : '';
+            var sumTitle = s.summary ? s.summary.trim() : '';
+            var effectiveTitle = annotTitle || sumTitle;
+            if (effectiveTitle) {
+              translateAndPersistTitle(store, svc, id, s, effectiveTitle);
+            }
+          }
+        }
+      } catch (e) {}
+      isSyncingTitles = false;
+    }
+
+    root.__AGY_SYNC_CONVO_TITLES__ = syncConversationTitles;
+    setTimeout(syncConversationTitles, 800);
+    setTimeout(syncConversationTitles, 2500);
+    if (root.__AGY_CONVO_SYNC_TIMER__) {
+      clearInterval(root.__AGY_CONVO_SYNC_TIMER__);
+    }
+    root.__AGY_CONVO_SYNC_TIMER__ = setInterval(function () {
+      if (root.__AGY_SYNC_CONVO_TITLES__) root.__AGY_SYNC_CONVO_TITLES__();
+    }, 6000);
   }
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
 

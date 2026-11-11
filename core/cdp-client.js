@@ -224,7 +224,9 @@ class SimpleWebSocketClient extends EventEmitter {
         // 发送带掩码的 Close 帧
         this.sendFrame(0x8, Buffer.alloc(0));
         this.socket.end();
+        this.socket.destroy();
       } catch (e) {}
+      this.socket = null;
     }
     this.connected = false;
   }

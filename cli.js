@@ -203,8 +203,9 @@ function getPureI18nBundle() {
   return `(function() {
   try {
     window.__AGY_I18N_DATA__ = ${dictContent.trim()};
-    if (typeof window.__AGY_HOT_RELOAD_DICT__ === 'function' && window.__AGY_ENGINE_EPOCH__) {
+    if (typeof window.__AGY_HOT_RELOAD_DICT__ === 'function' && window.__AGY_ENGINE_EPOCH__ && typeof window.__AGY_SYNC_CONVO_TITLES__ === 'function') {
       window.__AGY_HOT_RELOAD_DICT__(window.__AGY_I18N_DATA__);
+      window.__AGY_SYNC_CONVO_TITLES__();
       return;
     }
     window.__AGY_I18N_INITIALIZED__ = false;
@@ -410,27 +411,27 @@ async function hotInjectViaCdp(mode = 'install', onlyIfMissing = false) {
 
     for (const t of targets) {
       if ((t.type === 'page' || t.type === 'iframe' || t.type === 'webview') && t.webSocketDebuggerUrl && !String(t.url || '').startsWith('data:') && !String(t.url || '').startsWith('devtools://')) {
+        let client = null;
         try {
-          const client = new SimpleWebSocketClient(t.webSocketDebuggerUrl);
-          await client.connect();
+          client = new SimpleWebSocketClient(t.webSocketDebuggerUrl);
+          await client.connect(1500);
           if (mode === 'install') {
             if (onlyIfMissing) {
               const checkRes = await client.send('Runtime.evaluate', {
                 expression: 'Boolean(window.__AGY_I18N_DATA__ && window.__AGY_AUTO_UPDATE_HOOKED__ && document.body && !document.body.innerText.includes("New Conversation"))',
                 returnByValue: true
-              }).catch(() => null);
+              }, 1500).catch(() => null);
               if (checkRes && checkRes.result && checkRes.result.value === true) {
-                client.close();
                 continue;
               }
             }
             if (!pureBundle) pureBundle = getPureI18nBundle();
-            await client.send('Page.enable').catch(() => {});
-            await client.send('Page.addScriptToEvaluateOnNewDocument', { source: pureBundle }).catch(() => {});
+            await client.send('Page.enable', {}, 1500).catch(() => {});
+            await client.send('Page.addScriptToEvaluateOnNewDocument', { source: pureBundle }, 1500).catch(() => {});
             await client.send('Runtime.evaluate', {
               expression: pureBundle,
               returnByValue: true
-            });
+            }, 2500);
           } else if (mode === 'restore') {
             await client.send('Runtime.evaluate', {
               expression: `(() => {
@@ -445,11 +446,13 @@ async function hotInjectViaCdp(mode = 'install', onlyIfMissing = false) {
                 location.reload();
               })()`,
               returnByValue: true
-            });
+            }, 2000);
           }
-          client.close();
           injectedCount++;
-        } catch (_) {}
+        } catch (_) {
+        } finally {
+          if (client) client.close();
+        }
       }
     }
     if (injectedCount > 0) {
@@ -1038,7 +1041,11 @@ function install(customPath) {
     }
 
     patchLanguageServerBinary(resourcesDir, false);
-    spawnDetachedStagedApplier(asarPath);
+    if (os.platform() === 'darwin') {
+      stopDetachedStagedApplier(resourcesDir);
+    } else {
+      spawnDetachedStagedApplier(asarPath);
+    }
 
     // 写入汉化元数据指纹 (Hash/Manifest 根治架构)
     const metaPath = path.join(resourcesDir, '.antigravity_chinese_meta.json');
@@ -1109,10 +1116,171 @@ function getLanguageServerPath(resourcesDir) {
   return fs.existsSync(candidate) ? candidate : null;
 }
 
+function getLanguageServerBackupPath() {
+  const backupDir = path.join(os.homedir(), '.gemini', 'antigravity-chinese-backup');
+  if (!fs.existsSync(backupDir)) {
+    try { fs.mkdirSync(backupDir, { recursive: true }); } catch (_) {}
+  }
+  return path.join(backupDir, 'language_server.orig.bak');
+}
+
+function cleanMacBundleStrayFiles(resourcesDir) {
+  if (os.platform() !== 'darwin' || !resourcesDir || !fs.existsSync(resourcesDir)) return;
+  try {
+    const binDir = path.join(resourcesDir, 'bin');
+    const claudeBak = path.join(binDir, 'language_server.bak-before-resign');
+    if (fs.existsSync(claudeBak)) {
+      try {
+        const externalBak = getLanguageServerBackupPath();
+        if (!fs.existsSync(externalBak)) {
+          const b = fs.readFileSync(claudeBak);
+          const zhIdx = b.indexOf(LS_ZH_TITLE_PROMPT);
+          if (zhIdx !== -1 && LS_ORIG_TITLE_PROMPT.length === LS_ZH_TITLE_PROMPT.length) {
+            LS_ORIG_TITLE_PROMPT.copy(b, zhIdx);
+          }
+          fs.writeFileSync(externalBak, b, { mode: 0o755 });
+        }
+        fs.rmSync(claudeBak, { force: true });
+      } catch (_) {}
+    }
+
+    const strayFiles = [
+      path.join(resourcesDir, '.antigravity_chinese_guard.json'),
+      path.join(resourcesDir, 'app.asar.swap-old'),
+      path.join(binDir, 'language_server.swap-old'),
+      path.join(binDir, 'language_server.staged')
+    ];
+    for (const sf of strayFiles) {
+      if (fs.existsSync(sf)) {
+        try { fs.rmSync(sf, { force: true }); } catch (_) {}
+      }
+    }
+    if (fs.existsSync(binDir)) {
+      for (const entry of fs.readdirSync(binDir)) {
+        if (entry.startsWith('.language_server.tmp.') || entry.endsWith('.bak-before-resign')) {
+          try { fs.rmSync(path.join(binDir, entry), { force: true }); } catch (_) {}
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+function isMacBinarySignatureAndEntitlementsValid(binPath) {
+  if (os.platform() !== 'darwin' || !binPath || !fs.existsSync(binPath)) return false;
+  try {
+    const mode = fs.statSync(binPath).mode & 0o777;
+    if (mode !== 0o755) return false;
+    execSync(`/usr/bin/codesign --verify --verbose=2 "${binPath}"`, { stdio: 'ignore' });
+    const entOut = execSync(`/usr/bin/codesign -d --entitlements - "${binPath}" 2>&1`, { encoding: 'utf8' });
+    if (!entOut.includes('com.apple.security.cs.allow-jit')) return false;
+    const { spawnSync } = require('child_process');
+    const probe = spawnSync(binPath, ['--help'], { timeout: 3500, stdio: 'ignore' });
+    if (probe.signal === 'SIGKILL' || probe.status === 137) return false;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function signMacBinaryAtomic(binPath, bufOrNull = null, identifier = 'language_server') {
+  if (os.platform() !== 'darwin' || !binPath) return false;
+  const binDir = path.dirname(binPath);
+  const tmpBinPath = path.join(binDir, `.${path.basename(binPath)}.tmp.${process.pid}.${Date.now()}`);
+  const entPlistPath = path.join(os.tmpdir(), `agy_ls_ent_${process.pid}_${Date.now()}.plist`);
+  try {
+    const buf = bufOrNull || fs.readFileSync(binPath);
+    // 1. 写入全新临时文件（分配独立新 inode，绝不原地覆写正在运行的进程内存映射页）
+    fs.writeFileSync(tmpBinPath, buf, { mode: 0o755 });
+    fs.chmodSync(tmpBinPath, 0o755);
+
+    // 2. 写入标准 JIT 权限声明（确保 V8/Go 运行时与原版权限 100% 一致）
+    const entXml = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+      '<plist version="1.0">',
+      '<dict>',
+      '  <key>com.apple.security.cs.allow-jit</key>',
+      '  <true/>',
+      '</dict>',
+      '</plist>'
+    ].join('\n');
+    fs.writeFileSync(entPlistPath, entXml, 'utf8');
+
+    // 3. 对临时文件执行独立代码签名
+    const signer = resolveMacSigningIdentity();
+    try {
+      execSync(`/usr/bin/codesign --force --entitlements "${entPlistPath}" -i "${identifier}" --sign "${signer.id}" "${tmpBinPath}"`, { stdio: 'ignore' });
+    } catch (_) {
+      execSync(`/usr/bin/codesign --force --entitlements "${entPlistPath}" -i "${identifier}" --sign - "${tmpBinPath}"`, { stdio: 'ignore' });
+    }
+    try {
+      execSync(`/usr/bin/xattr -c "${tmpBinPath}"`, { stdio: 'ignore' });
+    } catch (_) {}
+
+    // 4. 替换前强制执行签名校验 + 真实内核启动探针（若触发 SIGKILL 则立即熔断中止，绝不替换原文件）
+    execSync(`/usr/bin/codesign --verify --verbose=2 "${tmpBinPath}"`, { stdio: 'ignore' });
+    const { spawnSync } = require('child_process');
+    const probe = spawnSync(tmpBinPath, ['--help'], { timeout: 3500, stdio: 'ignore' });
+    if (probe.signal === 'SIGKILL' || probe.status === 137) {
+      throw new Error('macOS 内核启动探针检测到 SIGKILL，已触发安全熔断');
+    }
+
+    // 5. 原子重命名替换（新 inode 立即生效，且正在运行的旧进程继续持有旧 inode 零中断）
+    fs.renameSync(tmpBinPath, binPath);
+    return true;
+  } catch (err) {
+    console.warn(`⚠️ [macOS 安全守卫] 二进制原子重签名跳过 (${ err.message })，已完整保留原文件。`);
+    return false;
+  } finally {
+    if (fs.existsSync(tmpBinPath)) {
+      try { fs.rmSync(tmpBinPath, { force: true }); } catch (_) {}
+    }
+    if (fs.existsSync(entPlistPath)) {
+      try { fs.rmSync(entPlistPath, { force: true }); } catch (_) {}
+    }
+  }
+}
+
 function patchLanguageServerBinary(resourcesDir, preferStaged = false) {
   try {
     const lsPath = getLanguageServerPath(resourcesDir);
     if (!lsPath || LS_ORIG_TITLE_PROMPT.length !== LS_ZH_TITLE_PROMPT.length) return;
+
+    if (os.platform() === 'darwin') {
+      cleanMacBundleStrayFiles(resourcesDir);
+      const buf = fs.readFileSync(lsPath);
+      if (buf.indexOf(LS_ZH_TITLE_PROMPT) !== -1) {
+        // 已包含中文标题提示词：自检签名、0755 权限与 JIT entitlements，若有缺失立即通过新 inode 原子修复
+        if (!isMacBinarySignatureAndEntitlementsValid(lsPath)) {
+          if (signMacBinaryAtomic(lsPath, buf, 'language_server')) {
+            console.log('🛡️ [macOS 签名自愈] 已修复 language_server 独立代码签名、0755 权限与 JIT 权限声明');
+          }
+        }
+        return;
+      }
+      const idx = buf.indexOf(LS_ORIG_TITLE_PROMPT);
+      if (idx === -1) {
+        if (!isMacBinarySignatureAndEntitlementsValid(lsPath)) {
+          signMacBinaryAtomic(lsPath, buf, 'language_server');
+        }
+        return;
+      }
+      // 首次修改前，在 ~/.gemini/antigravity-chinese-backup 保存一份 Google 官方原版备份（置于 .app 包外）
+      try {
+        const externalBak = getLanguageServerBackupPath();
+        if (!fs.existsSync(externalBak) || fs.statSync(externalBak).size !== buf.length) {
+          fs.writeFileSync(externalBak, buf, { mode: 0o755 });
+        }
+      } catch (_) {}
+
+      const patchedBuf = Buffer.from(buf);
+      LS_ZH_TITLE_PROMPT.copy(patchedBuf, idx);
+      if (signMacBinaryAtomic(lsPath, patchedBuf, 'language_server')) {
+        console.log('✅ 已注入左侧边栏会话标题默认中文生成规则并完成 macOS 独立原子重签名 (language_server)');
+      }
+      return;
+    }
+
     const swapOldLsPath = lsPath + '.swap-old';
     if (fs.existsSync(swapOldLsPath)) {
       try { fs.rmSync(swapOldLsPath, { force: true }); } catch (_) {}
@@ -1162,6 +1330,28 @@ function restoreLanguageServerBinary(resourcesDir) {
     if (fs.existsSync(stagedLsPath)) {
       try { fs.rmSync(stagedLsPath, { force: true }); } catch (_) {}
     }
+    if (os.platform() === 'darwin') {
+      cleanMacBundleStrayFiles(resourcesDir);
+      const buf = fs.readFileSync(lsPath);
+      const idx = buf.indexOf(LS_ZH_TITLE_PROMPT);
+      if (idx === -1) return;
+      LS_ORIG_TITLE_PROMPT.copy(buf, idx);
+      // 优先尝试恢复为 Google 原版签名二进制（若匹配原版签名则免重签直接通过验证）
+      const tmpRestorePath = path.join(path.dirname(lsPath), `.language_server.restore.${process.pid}.${Date.now()}`);
+      try {
+        fs.writeFileSync(tmpRestorePath, buf, { mode: 0o755 });
+        fs.chmodSync(tmpRestorePath, 0o755);
+        execSync(`/usr/bin/codesign --verify --verbose=2 "${tmpRestorePath}"`, { stdio: 'ignore' });
+        fs.renameSync(tmpRestorePath, lsPath);
+        return;
+      } catch (_) {
+        if (fs.existsSync(tmpRestorePath)) {
+          try { fs.rmSync(tmpRestorePath, { force: true }); } catch (__) {}
+        }
+      }
+      signMacBinaryAtomic(lsPath, buf, 'language_server');
+      return;
+    }
     const buf = fs.readFileSync(lsPath);
     const idx = buf.indexOf(LS_ZH_TITLE_PROMPT);
     if (idx === -1) return;
@@ -1186,6 +1376,18 @@ function syncMacAsarIntegrityAndSign(asarPath) {
     const appIndex = asarPath.indexOf('.app');
     if (appIndex === -1) return;
     const appPath = asarPath.substring(0, appIndex + 4);
+    const resourcesDir = path.dirname(asarPath);
+
+    // 1. 清理 Contents/Resources 下所有可能破坏 CodeResources 封包校验的残留备份/守护文件
+    cleanMacBundleStrayFiles(resourcesDir);
+
+    // 2. 确保 Contents/Resources/bin/language_server 拥有有效独立签名与 0755 权限（在外层 .app 封包签名前完成）
+    const lsPath = getLanguageServerPath(resourcesDir);
+    if (lsPath && !isMacBinarySignatureAndEntitlementsValid(lsPath)) {
+      signMacBinaryAtomic(lsPath, null, 'language_server');
+    }
+
+    // 3. 同步 Info.plist 中的 ElectronAsarIntegrity 哈希
     const plistPath = path.join(appPath, 'Contents', 'Info.plist');
     if (fs.existsSync(plistPath) && fs.existsSync(asarPath)) {
       const buf = fs.readFileSync(asarPath);
@@ -1196,18 +1398,23 @@ function syncMacAsarIntegrityAndSign(asarPath) {
         execSync(`/usr/libexec/PlistBuddy -c "Set :ElectronAsarIntegrity:Resources/app.asar:hash ${headerHash}" "${plistPath}"`, { stdio: 'ignore' });
       } catch (_) {}
     }
+
+    // 4. 对整个 .app Bundle 执行深度重签（此时 CodeResources 会将已签名的 language_server 与最新 app.asar 一并合法封存）
     const signer = resolveMacSigningIdentity();
     console.log(`🔏 [macOS] 正在同步 ASAR 完整性校验哈希并使用固定证书重签 (${signer.label})...`);
     try {
-      execSync(`codesign --force --deep --preserve-metadata=entitlements --sign "${signer.id}" "${appPath}"`, { stdio: 'ignore' });
+      execSync(`/usr/bin/codesign --force --deep --preserve-metadata=entitlements --sign "${signer.id}" "${appPath}"`, { stdio: 'ignore' });
     } catch (_) {
       if (signer.id !== '-') {
-        execSync(`codesign --force --deep --preserve-metadata=entitlements --sign - "${appPath}"`, { stdio: 'ignore' });
+        execSync(`/usr/bin/codesign --force --deep --preserve-metadata=entitlements --sign - "${appPath}"`, { stdio: 'ignore' });
       } else {
         throw _;
       }
     }
-    console.log('✅ macOS 完整性哈希同步与固定身份签名完成（TCC 权限持久保留）');
+    try {
+      execSync(`/usr/bin/xattr -dr com.apple.quarantine "${appPath}"`, { stdio: 'ignore' });
+    } catch (_) {}
+    console.log('✅ macOS 完整性哈希同步与固定身份签名完成（language_server 独立签名与 .app 封包校验双重通过）');
   } catch (e) {
     const appPath = asarPath.substring(0, asarPath.indexOf('.app') + 4);
     console.warn('⚠️ codesign 自动重签遇到警告，若打开报错可在终端执行: codesign --force --deep --sign - ' + appPath);
@@ -1576,7 +1783,15 @@ function stopDetachedStagedApplier(resourcesDir) {
     const globalGuardPath = getPersistentGuardFilePath();
     if (fs.existsSync(globalGuardPath)) fs.rmSync(globalGuardPath, { force: true });
     const pidFile = getGuardPidFilePath();
-    if (fs.existsSync(pidFile)) fs.rmSync(pidFile, { force: true });
+    if (fs.existsSync(pidFile)) {
+      try {
+        const oldPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+        if (oldPid && oldPid !== process.pid) {
+          try { process.kill(oldPid, 'SIGTERM'); } catch (_) {}
+        }
+      } catch (_) {}
+      fs.rmSync(pidFile, { force: true });
+    }
     if (resourcesDir) {
       const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
       if (fs.existsSync(guardPath)) fs.rmSync(guardPath, { force: true });
@@ -1590,6 +1805,10 @@ function stopDetachedStagedApplier(resourcesDir) {
       const configVbsPath = path.join(os.homedir(), '.gemini', 'config', 'AntigravityChineseGuard.vbs');
       if (fs.existsSync(configVbsPath)) fs.rmSync(configVbsPath, { force: true });
       execSync(`powershell -NoProfile -WindowStyle Hidden -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'node.exe'\\" | Where-Object { $_.CommandLine -like '*apply-staged*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore', windowsHide: true });
+    } else {
+      try {
+        execSync('pkill -f "cli\\.js apply-staged" || true', { stdio: 'ignore' });
+      } catch (_) {}
     }
   } catch (_) {}
 }
@@ -1599,10 +1818,12 @@ function spawnDetachedStagedApplier(asarPath) {
     if (process.argv.includes('--from-daemon')) return;
     const resourcesDir = path.dirname(asarPath);
     const guardData = JSON.stringify({ active: true, updatedAt: Date.now() });
-    const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
-    try { fs.writeFileSync(guardPath, guardData, 'utf8'); } catch (_) {}
+    if (os.platform() !== 'darwin') {
+      const guardPath = path.join(resourcesDir, '.antigravity_chinese_guard.json');
+      try { fs.writeFileSync(guardPath, guardData, 'utf8'); } catch (_) {}
+    }
 
-    // 将常驻守护标记同时写入用户目录 ~/.gemini/config/，防止 Antigravity 官方自动升级清空 resources 目录时误删守护标记
+    // 将常驻守护标记写入用户目录 ~/.gemini/config/，避免在 macOS Contents/Resources 下产生变动文件破坏 Bundle 签名
     const globalGuardPath = getPersistentGuardFilePath();
     const globalGuardDir = path.dirname(globalGuardPath);
     if (!fs.existsSync(globalGuardDir)) fs.mkdirSync(globalGuardDir, { recursive: true });
@@ -1789,16 +2010,26 @@ function applyStagedWhenUnlocked(customPath) {
     }
 
     if (hasStagedLs && lsPath && fs.existsSync(stagedLs)) {
-      try {
-        if (swapOldLs && fs.existsSync(swapOldLs)) fs.rmSync(swapOldLs, { force: true });
-        if (fs.existsSync(lsPath) && swapOldLs) fs.renameSync(lsPath, swapOldLs);
-        fs.renameSync(stagedLs, lsPath);
-        if (swapOldLs && fs.existsSync(swapOldLs)) {
-          try { fs.rmSync(swapOldLs, { force: true }); } catch (_) {}
-        }
-      } catch (_) {
-        if (!fs.existsSync(lsPath) && swapOldLs && fs.existsSync(swapOldLs)) {
-          try { fs.renameSync(swapOldLs, lsPath); } catch (_) {}
+      if (os.platform() === 'darwin') {
+        try {
+          const stagedBuf = fs.readFileSync(stagedLs);
+          fs.rmSync(stagedLs, { force: true });
+          if (signMacBinaryAtomic(lsPath, stagedBuf, 'language_server')) {
+            syncMacAsarIntegrityAndSign(asarPath);
+          }
+        } catch (_) {}
+      } else {
+        try {
+          if (swapOldLs && fs.existsSync(swapOldLs)) fs.rmSync(swapOldLs, { force: true });
+          if (fs.existsSync(lsPath) && swapOldLs) fs.renameSync(lsPath, swapOldLs);
+          fs.renameSync(stagedLs, lsPath);
+          if (swapOldLs && fs.existsSync(swapOldLs)) {
+            try { fs.rmSync(swapOldLs, { force: true }); } catch (_) {}
+          }
+        } catch (_) {
+          if (!fs.existsSync(lsPath) && swapOldLs && fs.existsSync(swapOldLs)) {
+            try { fs.renameSync(swapOldLs, lsPath); } catch (_) {}
+          }
         }
       }
     }

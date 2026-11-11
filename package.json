@@ -1,6 +1,6 @@
 {
   "name": "antigravity-chinese-skill",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "Google Antigravity 全生态中文本地化 Skill 与一键汉化工具 (macOS & Windows 双平台版 | 原版思考 + 中文输出 | TCC 权限持久签名)",
   "main": "cli.js",
   "engines": {

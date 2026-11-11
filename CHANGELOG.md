@@ -1,5 +1,20 @@
 # 版本更新日志 (Changelog)
 
+## v4.2.0 (2026-11-12)
+
+### 🛡️ 核心修复与加固 (Fixes & Hardening)
+- **macOS `language_server` 独立原子重签与启动探针熔断机制 (`signMacBinaryAtomic`)**：
+  - 根治 macOS (Apple Silicon `arm64`) 下原地修改 `Contents/Resources/bin/language_server` 且未被外层 `codesign --deep` 覆盖导致的 `Language server exited unexpectedly (code=null, signal=SIGKILL)` 启动报错；
+  - 所有二进制更新一律先写入独立临时文件（分配全新 `inode`，绝不污染正在运行进程的内存映射页），显式保留 `<key>com.apple.security.cs.allow-jit</key><true/>` 权限声明与 `0755` 可执行权限；
+  - 替换前强制执行 `codesign --verify` 签名校验与 `spawnSync(tmpBinPath, ['--help'])` 真实内核启动探针测试，通过后才执行 `fs.renameSync` 原子替换，并按「先签内部 `language_server`，再签外层 `Antigravity.app`」顺序同步更新 `CodeResources` 封条。
+- **清理 macOS `.app` 包内冗余残留与停用后台轮询守护 (`cleanMacBundleStrayFiles`)**：
+  - 将 `language_server` 备份迁移至 `.app` 包外安全目录 (`~/.gemini/antigravity-chinese-backup/`)，彻底避免包内冗余文件破坏 `Antigravity.app` 整体签名校验，并在 macOS 下停用 `apply-staged` 后台轮询进程。
+- **左侧会话列表标题精准词典映射与生命周期防抖 (`syncConversationTitles`)**：
+  - 仅对精选词典中明确收录的描述性英文标题执行中文映射与持久化，严禁调用在线机翻强行音译英文专有名词或项目名称（如 `Claude Cage`、`VMRack VPS` 等保持英文原样）；
+  - 新增运行时热重载生命周期清理机制（自动销毁旧实例的 `MutationObserver`、定时器与事件监听），彻底消除多实例并发导致的文本跳动。
+
+---
+
 ## v4.1.0 (2026-11-12)
 
 ### ✨ 新增功能 (Features)
