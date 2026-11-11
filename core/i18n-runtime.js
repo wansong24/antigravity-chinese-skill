@@ -183,7 +183,12 @@
     };
   }
 
-  if (root && root.__AGY_I18N_INITIALIZED__) return;
+  if (root && root.__AGY_I18N_INITIALIZED__ && root.__AGY_ENGINE_EPOCH__) {
+    if (typeof root.__AGY_HOT_RELOAD_DICT__ === 'function' && root.__AGY_I18N_DATA__) {
+      root.__AGY_HOT_RELOAD_DICT__(root.__AGY_I18N_DATA__);
+    }
+    return;
+  }
   if (root) root.__AGY_I18N_INITIALIZED__ = true;
 
   var doc = root ? (root.document || (typeof document !== 'undefined' ? document : null)) : null;
@@ -194,7 +199,7 @@
   var patterns = defaultEngine.patterns;
   var translationCache = defaultEngine.cache;
   var normalizeWhitespace = defaultEngine.normalizeWhitespace;
-  var translateSingleUnit = defaultEngine.translate;
+  var translateSingleUnit = function (s) { return defaultEngine.translate(s); };
 
   var IGNORED_TAGS = {
     'SCRIPT': 1, 'STYLE': 1, 'CODE': 1, 'PRE': 1, 'NOSCRIPT': 1,
@@ -279,8 +284,11 @@
 
 
 
-  // 标记属性名，用于避免重复翻译
-  var MARK_ATTR = '_agyDone';
+  // 引擎代数（用于热重载与多实例隔离，避免旧闭包否定缓存干扰新词库）
+  var engineEpoch = (root && (root.__AGY_ENGINE_EPOCH__ = (root.__AGY_ENGINE_EPOCH__ || 0) + 1)) || 1;
+  var ORIG_PROP = '_agyOrig_' + engineEpoch;
+  var MARK_ATTR = '_agyDone_' + engineEpoch;
+  var SCAN_PROP = '_agyScan_' + engineEpoch;
 
   // 扫描轮次 ID，同一轮全量扫描中元素只处理一次
   var currentScanId = 0;
@@ -294,17 +302,18 @@
     if (!original) return;
 
     // 如果节点已标记原始文本且未变化，直接 O(1) 瞬时退出
-    if (node._agyOriginal === original) return;
+    if (node[ORIG_PROP] === original) return;
 
     var trimmed = original.trim();
     if (!trimmed) {
       // 对纯空白节点补充否定标记，二次扫描直接 O(1) 退出，避免重复调用 trim()
-      node._agyOriginal = original;
+      node[ORIG_PROP] = original;
       return;
     }
 
     if (trimmed === '.' && node.previousSibling && /[\u4e00-\u9fa5]/.test(node.previousSibling.textContent || '')) {
       node.nodeValue = original.replace('.', '。');
+      node[ORIG_PROP] = node.nodeValue;
       node._agyOriginal = node.nodeValue;
       return;
     }
@@ -321,10 +330,11 @@
         }
       }
       node.nodeValue = leadingSpace + translated + trailingSpace;
-      node._agyOriginal = node.nodeValue; // 记录翻译后的值，防止重复处理
+      node[ORIG_PROP] = node.nodeValue; // 记录翻译后的值，防止重复处理
+      node._agyOriginal = node.nodeValue;
     } else {
       // 关键性能优化：补充 DOM 否定标记，未命中时记录原始文本，二次扫描直接 O(1) 退出
-      node._agyOriginal = original;
+      node[ORIG_PROP] = original;
     }
   }
 
@@ -333,8 +343,8 @@
     if (shouldIgnoreElement(el)) return;
 
     // 同一轮扫描中，已处理的元素跳过
-    if (scanId && el._agyScanId === scanId) return;
-    if (scanId) el._agyScanId = scanId;
+    if (scanId && el[SCAN_PROP] === scanId) return;
+    if (scanId) el[SCAN_PROP] = scanId;
 
     // 复合组件自愈：处理特定 JSX 碎片化 Alert（如 plan-command-fyi-alert）
     if (el.getAttribute && el.getAttribute('data-testid') === 'plan-command-fyi-alert') {
@@ -344,6 +354,7 @@
         while (alertChild) {
           if (alertChild.nodeType === 3 && alertChild.nodeValue && alertChild.nodeValue.trim() === 'Type') {
             alertChild.nodeValue = alertChild.nodeValue.replace('Type', '输入');
+            alertChild[ORIG_PROP] = alertChild.nodeValue;
             alertChild._agyOriginal = alertChild.nodeValue;
           }
           alertChild = alertChild.nextSibling;
@@ -393,10 +404,12 @@
           var combinedTrans = translateSingleUnit(combinedText);
           if (combinedTrans !== null && combinedTrans !== combinedText) {
             first.nodeValue = combinedTrans;
+            first[ORIG_PROP] = combinedTrans;
             first._agyOriginal = combinedTrans;
             var other = first.nextSibling;
             while (other) {
               other.nodeValue = '';
+              other[ORIG_PROP] = '';
               other._agyOriginal = '';
               other = other.nextSibling;
             }
@@ -422,16 +435,19 @@
         }
         if (alsoNode && whenNode) {
           alsoNode.nodeValue = '在此项目中工作时，也包含';
+          alsoNode[ORIG_PROP] = alsoNode.nodeValue;
           alsoNode._agyOriginal = alsoNode.nodeValue;
           var between = alsoNode.nextSibling;
           while (between && between !== whenNode) {
             if (between.nodeType === 3 && !between.nodeValue.trim()) {
               between.nodeValue = '';
+              between[ORIG_PROP] = '';
               between._agyOriginal = '';
             }
             between = between.nextSibling;
           }
           whenNode.nodeValue = '。';
+          whenNode[ORIG_PROP] = whenNode.nodeValue;
           whenNode._agyOriginal = whenNode.nodeValue;
         }
       }
@@ -572,6 +588,7 @@
           } else if (mutation.type === 'characterData') {
             // 文本内容变化，重置标记使其可以被重新翻译
             if (mutation.target) {
+              mutation.target[ORIG_PROP] = undefined;
               mutation.target._agyOriginal = undefined;
               enqueueNode(mutation.target);
             }
@@ -705,6 +722,33 @@
   }
 
   if (root) {
+    root.__AGY_ACTIVE_FLUSH__ = flushPendingNodes;
+    if (root.requestAnimationFrame && !root.__AGY_RAF_WRAPPED__) {
+      var origRaf = root.requestAnimationFrame.bind(root);
+      root.requestAnimationFrame = function (cb) {
+        if (cb && cb.name === 'flushPendingNodes' && cb !== root.__AGY_ACTIVE_FLUSH__) {
+          return 0;
+        }
+        return origRaf(cb);
+      };
+      root.__AGY_RAF_WRAPPED__ = true;
+    }
+
+    root.__AGY_HOT_RELOAD_DICT__ = function (newDictData) {
+      if (!newDictData) return;
+      engineEpoch = (root.__AGY_ENGINE_EPOCH__ = (root.__AGY_ENGINE_EPOCH__ || 0) + 1);
+      ORIG_PROP = '_agyOrig_' + engineEpoch;
+      MARK_ATTR = '_agyDone_' + engineEpoch;
+      SCAN_PROP = '_agyScan_' + engineEpoch;
+      defaultEngine = createI18nEngine(newDictData);
+      exactDict = defaultEngine.exactDict;
+      patterns = defaultEngine.patterns;
+      translationCache = defaultEngine.cache;
+      root.__AGY_CACHE__ = translationCache;
+      if (doc && doc.documentElement) {
+        safeFullScan();
+      }
+    };
     root.__AGY_CREATE_ENGINE__ = createI18nEngine;
     root.__AGY_TRANSLATE_UNIT__ = translateSingleUnit;
     root.__AGY_TRANSLATE_EL__ = translateElement;

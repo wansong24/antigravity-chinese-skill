@@ -203,6 +203,11 @@ function getPureI18nBundle() {
   return `(function() {
   try {
     window.__AGY_I18N_DATA__ = ${dictContent.trim()};
+    if (typeof window.__AGY_HOT_RELOAD_DICT__ === 'function' && window.__AGY_ENGINE_EPOCH__) {
+      window.__AGY_HOT_RELOAD_DICT__(window.__AGY_I18N_DATA__);
+      return;
+    }
+    window.__AGY_I18N_INITIALIZED__ = false;
     ${runtimeContent}
     if (window.__AGY_RUN_FULL_SCAN__) window.__AGY_RUN_FULL_SCAN__();
   } catch(e) {
@@ -958,6 +963,26 @@ function install(customPath) {
   }
 }
 
+function resolveMacSigningIdentity() {
+  if (process.env.AGY_CODESIGN_IDENTITY) {
+    return { id: process.env.AGY_CODESIGN_IDENTITY, label: process.env.AGY_CODESIGN_IDENTITY };
+  }
+  try {
+    const out = execSync('security find-identity -v -p codesigning', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    const lines = out.split(/\r?\n/);
+    for (const line of lines) {
+      const m = line.match(/\)\s+([0-9A-Fa-f]{40})\s+"([^"]+)"/);
+      if (m) {
+        return { id: m[1], label: m[2] };
+      }
+    }
+  } catch (_) {}
+  return { id: '-', label: 'Ad-hoc (-)' };
+}
+
 function syncMacAsarIntegrityAndSign(asarPath) {
   if (os.platform() !== 'darwin') return;
   try {
@@ -974,9 +999,18 @@ function syncMacAsarIntegrityAndSign(asarPath) {
         execSync(`/usr/libexec/PlistBuddy -c "Set :ElectronAsarIntegrity:Resources/app.asar:hash ${headerHash}" "${plistPath}"`, { stdio: 'ignore' });
       } catch (_) {}
     }
-    console.log('🔏 [macOS] 正在同步 ASAR 完整性校验哈希并重签应用签名 (Ad-hoc codesign)...');
-    execSync(`codesign --force --deep --preserve-metadata=entitlements --sign - "${appPath}"`, { stdio: 'ignore' });
-    console.log('✅ macOS 完整性哈希同步与签名完成');
+    const signer = resolveMacSigningIdentity();
+    console.log(`🔏 [macOS] 正在同步 ASAR 完整性校验哈希并使用固定证书重签 (${signer.label})...`);
+    try {
+      execSync(`codesign --force --deep --preserve-metadata=entitlements --sign "${signer.id}" "${appPath}"`, { stdio: 'ignore' });
+    } catch (_) {
+      if (signer.id !== '-') {
+        execSync(`codesign --force --deep --preserve-metadata=entitlements --sign - "${appPath}"`, { stdio: 'ignore' });
+      } else {
+        throw _;
+      }
+    }
+    console.log('✅ macOS 完整性哈希同步与固定身份签名完成（TCC 权限持久保留）');
   } catch (e) {
     const appPath = asarPath.substring(0, asarPath.indexOf('.app') + 4);
     console.warn('⚠️ codesign 自动重签遇到警告，若打开报错可在终端执行: codesign --force --deep --sign - ' + appPath);
@@ -1140,6 +1174,23 @@ function status(customPath) {
     console.log(`• VS Code 扩展: ${vsPatched ? '🟢 已安装全景汉化 (含 Webview 代理)' : '⚪ 原生未修改状态'} (${vsExtDir})`);
   } else {
     console.log('• VS Code 扩展: ⚪ 未检测到本机扩展');
+  }
+
+  if (os.platform() === 'darwin') {
+    const signer = resolveMacSigningIdentity();
+    console.log(`• 固定签名证书: ${signer.id !== '-' ? '🟢 ' + signer.label + ' (TCC 权限跨版本持久保留)' : '🟡 Ad-hoc 临时签名'}`);
+    try {
+      const geminiPatchScript = path.join(PROJECT_ROOT, 'core', 'gemini-hub-patch.py');
+      if (fs.existsSync(geminiPatchScript)) {
+        const raw = execSync(`/usr/bin/python3 "${geminiPatchScript}" status`, { encoding: 'utf8' });
+        const gStatus = JSON.parse(raw.trim());
+        if (gStatus && gStatus.installed && Array.isArray(gStatus.apps)) {
+          for (const item of gStatus.apps) {
+            console.log(`• Gemini 内嵌版: ${item.patched ? '🟢 已安装内嵌 Antigravity 汉化' : '⚪ 原生未修改状态'} (${item.app})`);
+          }
+        }
+      }
+    } catch (_) {}
   }
   console.log('');
 }
@@ -1340,6 +1391,9 @@ function applyStagedWhenUnlocked(customPath) {
           }
           const newFp = getAsarFingerprint(asarPath);
           fs.writeFileSync(metaPath, JSON.stringify({ patched: true, patchedFingerprint: newFp, timestamp: Date.now() }, null, 2), 'utf8');
+          if (os.platform() === 'darwin') {
+            syncMacAsarIntegrityAndSign(asarPath);
+          }
           break;
         } catch (err) {
           if (attempt < 9) {
@@ -1387,6 +1441,14 @@ if (require.main === module) {
       } catch (vsErr) {
         console.warn('⚠️ [全家桶联动] VS Code 扩展注入跳过:', vsErr.message);
       }
+      if (os.platform() === 'darwin') {
+        try {
+          const geminiPatchScript = path.join(PROJECT_ROOT, 'core', 'gemini-hub-patch.py');
+          if (fs.existsSync(geminiPatchScript)) {
+            execSync(`/usr/bin/python3 "${geminiPatchScript}" install`, { stdio: 'inherit' });
+          }
+        } catch (_) {}
+      }
       break;
     case 'apply-staged':
       applyStagedWhenUnlocked(customPath);
@@ -1413,6 +1475,14 @@ if (require.main === module) {
           }
         }
       } catch (_) {}
+      if (os.platform() === 'darwin') {
+        try {
+          const geminiPatchScript = path.join(PROJECT_ROOT, 'core', 'gemini-hub-patch.py');
+          if (fs.existsSync(geminiPatchScript)) {
+            execSync(`/usr/bin/python3 "${geminiPatchScript}" restore`, { stdio: 'inherit' });
+          }
+        } catch (_) {}
+      }
       break;
     case 'install:vscode':
     case 'install-vscode':

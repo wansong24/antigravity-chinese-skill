@@ -1,9 +1,9 @@
-# Antigravity 全生态中文本地化 Skill 与一键汉化工具 (`v4.0.0`)
+# Antigravity 全生态中文本地化 Skill 与一键汉化工具 (`v4.1.0`)
 
 <p align="left">
-  <img src="https://img.shields.io/badge/Version-v4.0.0-blue?style=flat-square" alt="Version v4.0.0" />
+  <img src="https://img.shields.io/badge/Version-v4.1.0-blue?style=flat-square" alt="Version v4.1.0" />
   <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-success?style=flat-square" alt="macOS & Windows" />
-  <img src="https://img.shields.io/badge/Antigravity-2.23.x%2B%20%7C%20Skill%20%26%20Plugin-purple?style=flat-square" alt="Antigravity Skill" />
+  <img src="https://img.shields.io/badge/Antigravity-2.31.x%2B%20%7C%20Skill%20%26%20Plugin-purple?style=flat-square" alt="Antigravity Skill" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License MIT" />
 </p>
 
@@ -11,17 +11,18 @@
 
 ---
 
-## ✨ v4.0.0 核心特性
+## ✨ v4.1.0 核心特性
 
 1. **🧠 原版思考 + 100% 中文输出（零降智架构）**
    - **UI 层思考面板保护边界 (`isThinkingContentBoundary`)**：仅汉化折叠按钮标题（`思考中...` / `已思考 XX 秒`），**100% 保护思考面板内部的模型原生思考过程（`Thinking`）不被词典逐词硬翻**。
    - **插件层单源规则 (`AGENTS.md`)**：大模型内部推理过程（`Thinking / Chain-of-Thought`）完全保持官方原版自然状态以发挥 100% 原始推理能力；同时强制锁定**正式回复正文、实施计划 (`Implementation Plan`)、总结报告 (`Walkthrough`)、提问交互及工具调用状态 (`toolAction / toolSummary`) 全程使用简体中文**。
-2. **🍎 macOS 完整性校验同步与防闪退自愈**
-   - 自动计算新打包 `app.asar` 的 Header SHA256，使用 `PlistBuddy` 同步更新 `/Applications/Antigravity.app/Contents/Info.plist` 中的 `ElectronAsarIntegrity` 哈希，并执行 `codesign` 深度重签名，彻底解决 macOS 修改 `app.asar` 后启动闪退的问题。
-3. **⚡ CDP 0.1 秒免重启实时热挂载**
-   - 自动读取本机 `DevToolsActivePort`，在不强关正在运行的 Antigravity 会话窗口的前提下，通过 Chrome DevTools Protocol 实时将中文界面热注入到所有已打开窗口。
-4. **📦 极致轻量防膨胀打包（体积缩减 75%）**
-   - 始终优先从官方纯净基准备份 `app.asar.bak` 解包，配合 `--unpack-dir` 与单源 `agy-i18n-bundle.js` 共享注入，杜绝多次更新导致的体积膨胀。
+2. **🍎 macOS 完整性校验同步与固定证书永久免授权 (`resolveMacSigningIdentity`)**
+   - 自动计算新打包 `app.asar` 的 Header SHA256，使用 `PlistBuddy` 同步更新 `/Applications/Antigravity.app/Contents/Info.plist` 中的 `ElectronAsarIntegrity` 哈希，彻底解决 macOS 修改 `app.asar` 后启动闪退问题。
+   - 自动探测本机钥匙串中的开发者签名证书（如 `Apple Development` / `Developer ID`）进行固定身份签名（无证书环境自动回退至 `Ad-hoc` 签名），使 macOS **「完全磁盘访问权限」**（如微信直接拖拽图片）与 **「辅助功能」**（如 `agent-desktop` 桌面控制）跨版本升级永久有效，告别每次升级重新授权。
+3. **⚡ CDP 0.1 秒免重启实时热挂载与词库纪元热重载 (`__AGY_HOT_RELOAD_DICT__`)**
+   - 自动读取本机 `DevToolsActivePort`，在不强关正在运行的 Antigravity 会话窗口的前提下，通过 Chrome DevTools Protocol 实时将中文界面与最新词库热注入到所有已打开窗口，支持已渲染 DOM 节点免刷新即时重扫。
+4. **📦 全面适配 Antigravity 2.31.0（含协调器 Coordinators、随手问 `/btw` 等 700+ 新增词条）**
+   - 完整覆盖 `2.29.x` ~ `2.31.0` 新增的协调器（`Coordinators`）、随手问浮窗（`Ask /btw`）、语音转录摘要（`Voice Transcript Summary`）、无障碍模式及云端工作区全部界面文案。
 5. **🌐 一键云端词库增量同步**
    - 双击 1 号安装脚本时，自动从 GitHub 增量拉取合并最新中文词条，同时保护本地定制脚本与规则不被覆盖。
 

@@ -4,7 +4,7 @@ description: >-
   Installs, updates, diagnoses, self-heals, or restores Google Antigravity Chinese localization (UI + Chinese output rules while preserving native original Thinking) on macOS and Windows. Activate this skill when the user asks about Antigravity Chinese localization status, wants to install or update the Chinese patch, fix macOS launch crash after patching, or add new translation entries.
 ---
 
-# Antigravity 中文本地化诊断与管理技能 (v4.0.0)
+# Antigravity 中文本地化诊断与管理技能 (v4.1.0)
 
 本技能用于管理 Google Antigravity 客户端（macOS & Windows）界面汉化与全局中文输出规则插件。
 

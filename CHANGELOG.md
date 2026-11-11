@@ -1,5 +1,21 @@
 # 版本更新日志 (Changelog)
 
+## v4.1.0 (2026-11-12)
+
+### ✨ 新增功能 (Features)
+- **macOS 固定证书签名与 TCC 权限跨版本永久保留 (`resolveMacSigningIdentity`)**：
+  - 自动探测本机钥匙串中的开发者代码签名证书（如 `Apple Development` / `Developer ID`），优先使用固定证书对 `Antigravity.app` 及所有 `Helper` 进程签名；
+  - 将系统 `TCC` 权限校验规则从每次升级必变的临时哈希（`cdhash`）升级为固定证书身份校验，彻底解决客户端升级并重签汉化后「**完全磁盘访问权限**」（如从微信直接拖拽图片提示 `无效的媒体文件`）与「**辅助功能**」（如 `agent-desktop` 无障碍控制）失效的问题；
+  - 支持环境变量 `AGY_CODESIGN_IDENTITY` 自定义签名身份，并在无证书环境下自动平滑回退至 `Ad-hoc (-)` 签名。
+- **全面适配 Antigravity `2.29.x` ~ `2.31.0` 最新版本（新增 700+ 词条与动态正则）**：
+  - 完整汉化 `2.30.0` / `2.31.0` 新增的 **协调器 (`Coordinators` / `New Coordinator`)**、**随手问 (`Ask /btw` 侧边快速问答浮窗)**、**语音转录摘要 (`Voice Transcript Summary`)**、**无障碍模式 (`Accessibility Mode`)**、**通知增强 (`Notifications`)** 以及 **云端工作区 (`Cloud Workspaces`)** 全部界面文案。
+- **CDP 词库纪元热重载引擎 (`__AGY_HOT_RELOAD_DICT__`)**：
+  - 在 [`core/i18n-runtime.js`](./core/i18n-runtime.js) 中引入 `engineEpoch` 纪元属性隔离与 `requestAnimationFrame` 队列去重，热更新词库时无需刷新窗口即可立即重扫并替换已渲染 DOM 节点。
+- **Gemini 桌面版内嵌 Antigravity 联动汉化 (`core/gemini-hub-patch.py`)**：
+  - 支持在 macOS 下自动检测并为 `Gemini.app` 内嵌的 `agy` 二进制资源包同步注入中文界面。
+
+---
+
 ## v4.0.0 (2026-10-15)
 
 ### ✨ 新增功能 (Features)
