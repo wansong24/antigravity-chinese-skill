@@ -865,11 +865,14 @@ function install(customPath) {
         fs.symlinkSync(origUnpackedDir, bakUnpackedLink, os.platform() === 'win32' ? 'junction' : 'dir');
       } catch (_) {}
     }
+    const asarJs = path.join(__dirname, 'node_modules', '@electron', 'asar', 'bin', 'asar.js');
     const asarBin = path.join(__dirname, 'node_modules', '.bin', os.platform() === 'win32' ? 'asar.cmd' : 'asar');
-    const extractCmd = fs.existsSync(asarBin)
-      ? `"${asarBin}" extract "${extractSource}" "${tempExtractDir}"`
-      : `npx -y @electron/asar@3.2.14 extract "${extractSource}" "${tempExtractDir}"`;
-    execSync(extractCmd, { stdio: 'inherit' });
+    const extractCmd = fs.existsSync(asarJs)
+      ? `"${process.execPath}" "${asarJs}" extract "${extractSource}" "${tempExtractDir}"`
+      : fs.existsSync(asarBin)
+        ? `"${asarBin}" extract "${extractSource}" "${tempExtractDir}"`
+        : `npx -y @electron/asar@3.2.14 extract "${extractSource}" "${tempExtractDir}"`;
+    execSync(extractCmd, { stdio: 'inherit', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
     if (fs.existsSync(bakUnpackedLink)) {
       try { fs.unlinkSync(bakUnpackedLink); } catch (_) {}
     }
@@ -949,13 +952,16 @@ function install(customPath) {
   if (fs.existsSync(tempNewAsar)) fs.rmSync(tempNewAsar, { force: true });
 
   try {
+    const asarJs = path.join(__dirname, 'node_modules', '@electron', 'asar', 'bin', 'asar.js');
     const asarBin = path.join(__dirname, 'node_modules', '.bin', os.platform() === 'win32' ? 'asar.cmd' : 'asar');
     const unpackedMcp = path.join(resourcesDir, 'app.asar.unpacked', 'node_modules', 'chrome-devtools-mcp');
     const unpackFlag = fs.existsSync(unpackedMcp) ? ' --unpack-dir "node_modules/chrome-devtools-mcp"' : '';
-    const packCmd = fs.existsSync(asarBin)
-      ? `"${asarBin}" pack "${tempExtractDir}" "${tempNewAsar}"${unpackFlag}`
-      : `npx -y @electron/asar@3.2.14 pack "${tempExtractDir}" "${tempNewAsar}"${unpackFlag}`;
-    execSync(packCmd, { stdio: 'inherit' });
+    const packCmd = fs.existsSync(asarJs)
+      ? `"${process.execPath}" "${asarJs}" pack "${tempExtractDir}" "${tempNewAsar}"${unpackFlag}`
+      : fs.existsSync(asarBin)
+        ? `"${asarBin}" pack "${tempExtractDir}" "${tempNewAsar}"${unpackFlag}`
+        : `npx -y @electron/asar@3.2.14 pack "${tempExtractDir}" "${tempNewAsar}"${unpackFlag}`;
+    execSync(packCmd, { stdio: 'inherit', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
     if (fs.existsSync(tempNewAsar + '.unpacked')) {
       fs.rmSync(tempNewAsar + '.unpacked', { recursive: true, force: true });
     }
